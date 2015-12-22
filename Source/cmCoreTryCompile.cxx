@@ -490,8 +490,20 @@ int cmCoreTryCompile::TryCompileCode(std::vector<std::string> const& argv)
     /* Put the executable at a known location (for COPY_FILE).  */
     fprintf(fout, "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \"%s\")\n",
             this->BinaryDirectory.c_str());
-    /* Create the actual executable.  */
-    fprintf(fout, "add_executable(%s", targetName.c_str());
+    std::string outputType = this->Makefile->GetSafeDefinition(
+                                          "CMAKE_TRY_COMPILE_OUTPUT_TYPE");
+    if (outputType == "shared")
+      {
+      fprintf(fout, "add_library(%s SHARED ", targetName.c_str());
+      }
+    else if (outputType == "static")
+      {
+      fprintf(fout, "add_library(%s STATIC ", targetName.c_str());
+      }
+    else
+      {
+      fprintf(fout, "add_executable(%s", targetName.c_str());
+      }
     for(std::vector<std::string>::iterator si = sources.begin();
         si != sources.end(); ++si)
       {
@@ -657,8 +669,12 @@ void cmCoreTryCompile::FindOutputFile(const std::string& targetName)
   this->FindErrorMessage = "";
   this->OutputFile = "";
   std::string tmpOutputFile = "/";
+  tmpOutputFile +=this->Makefile->GetSafeDefinition(
+                                        "CMAKE_TRY_COMPILE_EXECUTABLE_PREFIX");
   tmpOutputFile += targetName;
   tmpOutputFile +=this->Makefile->GetSafeDefinition("CMAKE_EXECUTABLE_SUFFIX");
+  tmpOutputFile +=this->Makefile->GetSafeDefinition(
+                                        "CMAKE_TRY_COMPILE_EXECUTABLE_SUFFIX");
 
   // a list of directories where to search for the compilation result
   // at first directly in the binary dir

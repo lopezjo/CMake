@@ -1,0 +1,6 @@
+cmake_minimum_required (VERSION 3.3.2)
+project (VCMDDAndroid)
+add_library(libA OBJECT source1.cpp)
+add_library(libB SHARED $<TARGET_OBJECTS:libA> source2.cpp)
+set_property(TARGET libB PROPERTY VC_MDD_ANDROID_USE_OF_STL "c++_static")
+set_property(TARGET libB PROPERTY VC_MDD_ANDROID_API_LEVEL "android-21")

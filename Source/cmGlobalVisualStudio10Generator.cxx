@@ -101,6 +101,7 @@ cmGlobalVisualStudio10Generator::cmGlobalVisualStudio10Generator(cmake* cm,
   this->SystemIsWindowsCE = false;
   this->SystemIsWindowsPhone = false;
   this->SystemIsWindowsStore = false;
+  this->SystemIsAndroidMDD = false;
   this->MSBuildCommandInitialized = false;
   this->Version = VS10;
 }
@@ -207,6 +208,14 @@ bool cmGlobalVisualStudio10Generator::InitializeSystem(cmMakefile* mf)
       return false;
       }
     }
+  else if (this->SystemName == "VCMDDAndroid")
+    {
+    this->SystemIsAndroidMDD = true;
+    if(!this->InitializeAndroidMDD(mf))
+      {
+      return false;
+      }
+    }
   else if(this->SystemName == "Android")
     {
     if(this->DefaultPlatformName != "Win32")
@@ -274,6 +283,14 @@ bool cmGlobalVisualStudio10Generator::InitializeWindowsStore(cmMakefile* mf)
   e << this->GetName() << " does not support Windows Store.";
   mf->IssueMessage(cmake::FATAL_ERROR, e.str());
   return false;
+}
+
+bool cmGlobalVisualStudio10Generator::InitializeAndroidMDD(cmMakefile* mf)
+{
+    std::ostringstream e;
+    e << this->GetName() << " does not support Android MDD.";
+    mf->IssueMessage(cmake::FATAL_ERROR, e.str());
+    return false;
 }
 
 //----------------------------------------------------------------------------
@@ -640,4 +657,24 @@ std::string cmGlobalVisualStudio10Generator::GetInstalledNsightTegraVersion()
     "HKEY_LOCAL_MACHINE\\SOFTWARE\\NVIDIA Corporation\\Nsight Tegra;"
     "Version", version, cmSystemTools::KeyWOW64_32);
   return version;
+}
+
+const char* cmGlobalVisualStudio10Generator::GetAndroidMDDVersion()
+{
+  if (this->SystemVersion == "")
+    {
+    return "1.0";
+    }
+  return this->SystemVersion.c_str();
+}
+
+bool cmGlobalVisualStudio10Generator::IsAndroidMDDInstalled()
+{
+  std::string ideVersion = GetIDEVersion();
+  std::string installed;
+  cmSystemTools::ReadRegistryValue(
+    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\DevDiv\\MDD\\Servicing\\" +
+    ideVersion + "\\CPlusPlusCore;"
+    "Install", installed, cmSystemTools::KeyWOW64_32);
+  return installed == "1";
 }

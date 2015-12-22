@@ -86,6 +86,10 @@ public:
   bool TargetsWindowsPhone() const
     { return this->SystemIsWindowsPhone; }
 
+  /** Return true if building for Android */
+  bool TargetsAndroidMDD() const
+    { return this->SystemIsAndroidMDD; }
+
   /** Return true if building for WindowsStore */
   bool TargetsWindowsStore() const
     { return this->SystemIsWindowsStore; }
@@ -106,6 +110,9 @@ public:
 
   static std::string GetInstalledNsightTegraVersion();
 
+  const char* GetAndroidMDDVersion();
+  bool IsAndroidMDDInstalled();
+
 protected:
   virtual void Generate();
   virtual bool InitializeSystem(cmMakefile* mf);
@@ -113,6 +120,7 @@ protected:
   virtual bool InitializeWindowsCE(cmMakefile* mf);
   virtual bool InitializeWindowsPhone(cmMakefile* mf);
   virtual bool InitializeWindowsStore(cmMakefile* mf);
+  virtual bool InitializeAndroidMDD(cmMakefile* mf);
 
   virtual std::string SelectWindowsCEToolset() const;
   virtual bool SelectWindowsPhoneToolset(std::string& toolset) const;
@@ -131,6 +139,7 @@ protected:
   bool SystemIsWindowsCE;
   bool SystemIsWindowsPhone;
   bool SystemIsWindowsStore;
+  bool SystemIsAndroidMDD;
   bool ExpressEdition;
 
   bool UseFolderProperty();

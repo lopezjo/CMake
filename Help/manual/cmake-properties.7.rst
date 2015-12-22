@@ -277,6 +277,9 @@ Properties on Targets
    /prop_tgt/WINDOWS_EXPORT_ALL_SYMBOLS
    /prop_tgt/XCODE_ATTRIBUTE_an-attribute
    /prop_tgt/XCTEST
+   /prop_tgt/VC_MDD_ANDROID_USE_OF_STL
+   /prop_tgt/VC_MDD_ANDROID_API_LEVEL
+   /prop_tgt/VC_MDD_ANDROID_PLATFORM_TOOLSET
 
 .. _`Test Properties`:
 

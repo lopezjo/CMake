@@ -1020,6 +1020,11 @@ bool SystemTools::ReadRegistryValue(const std::string& key, std::string &value,
           valueset = true;
           }
         }
+      else if (dwType == REG_DWORD)
+        {
+        value = std::to_string(*reinterpret_cast<DWORD*>(data));
+        valueset = true;
+        }
       }
 
     RegCloseKey(hKey);

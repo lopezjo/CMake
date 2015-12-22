@@ -2095,6 +2095,24 @@ ${CMake_BINARY_DIR}/bin/cmake -DDIR=dev -P ${CMake_SOURCE_DIR}/Utilities/Release
     endif()
   endif()
 
+  get_filename_component(reg_vcmdd_android_vs14 "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\DevDiv\\MDD\\Servicing\\14.0\\CPlusPlusCore;Install]" NAME)
+  if(reg_vcmdd_android_vs14 MATCHES 1)
+    macro(add_test_VCMDDAndroid name generator)
+      add_test(NAME VCMDDAndroid.${name} COMMAND ${CMAKE_CTEST_COMMAND}
+        --build-and-test
+        "${CMake_SOURCE_DIR}/Tests/VCMDDAndroid"
+        "${CMake_BINARY_DIR}/Tests/VCMDDAndroid/${name}"
+        --build-generator "${generator}"
+        --build-project VCMDDAndroid
+        --build-config $<CONFIGURATION>
+        --build-options -DCMAKE_SYSTEM_NAME=VCMDDAndroid
+        )
+      list(APPEND TEST_BUILD_DIRS "${CMake_BINARY_DIR}/Tests/VCMDDAndroid/${name}")
+    endmacro()
+    add_test_VCMDDAndroid(vs14 "Visual Studio 14")
+    add_test_VCMDDAndroid(vs14_arm "Visual Studio 14 ARM")
+  endif()
+
   if (APPLE)
     if (CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
       set(BundleTestInstallDir

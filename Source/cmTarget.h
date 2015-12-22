@@ -314,6 +314,9 @@ public:
   /** Return whether or not the target is for a DLL platform.  */
   bool IsDLLPlatform() const { return this->DLLPlatform; }
 
+  /** Return whether or not the target is for a DLL platform.  */
+  bool IsAndroidMDD() const { return this->AndroidMDD; }
+
   /** Return whether or not the target has a DLL import library.  */
   bool HasImportLibrary() const;
 
@@ -499,6 +502,7 @@ private:
   bool RecordDependencies;
   bool DLLPlatform;
   bool IsAndroid;
+  bool AndroidMDD;
   bool IsApple;
   bool IsImportedTarget;
   bool BuildInterfaceIncludesAppended;

@@ -190,6 +190,7 @@ cmVisualStudio10TargetGenerator(cmTarget* target,
     {
     this->NsightTegraVersion[i] = 0;
     }
+  this->AndroidMDD = gg->TargetsAndroidMDD();
   this->MSTools = !this->NsightTegra;
   this->TargetCompileAsWinRT = false;
   this->BuildFileStream = 0;
@@ -410,7 +411,14 @@ void cmVisualStudio10TargetGenerator::Generate()
     this->Target->GetProperty("VS_GLOBAL_KEYWORD");
   if(!vsGlobalKeyword)
     {
-    this->WriteString("<Keyword>Win32Proj</Keyword>\n", 2);
+    if(!this->AndroidMDD)
+      {
+      this->WriteString("<Keyword>Win32Proj</Keyword>\n", 2);
+      }
+    else
+      {
+      this->WriteString("<Keyword>Android</Keyword>\n", 2);
+      }
     }
   else
     {
@@ -419,6 +427,11 @@ void cmVisualStudio10TargetGenerator::Generate()
       "</Keyword>\n";
     }
 
+  const char* projLabel = this->Target->GetProperty("PROJECT_LABEL");
+  if(!projLabel)
+    {
+    projLabel = this->Name.c_str();
+    }
   const char* vsGlobalRootNamespace =
     this->Target->GetProperty("VS_GLOBAL_ROOTNAMESPACE");
   if(vsGlobalRootNamespace)
@@ -427,15 +440,15 @@ void cmVisualStudio10TargetGenerator::Generate()
     (*this->BuildFileStream) << cmVS10EscapeXML(vsGlobalRootNamespace) <<
       "</RootNamespace>\n";
     }
+  else if(this->AndroidMDD)
+    {
+    this->WriteString("<RootNamespace>", 2);
+    (*this->BuildFileStream) << cmVS10EscapeXML(projLabel) << "</RootNamespace>\n";
+    }
 
   this->WriteString("<Platform>", 2);
   (*this->BuildFileStream) << cmVS10EscapeXML(this->Platform)
                            << "</Platform>\n";
-  const char* projLabel = this->Target->GetProperty("PROJECT_LABEL");
-  if(!projLabel)
-    {
-    projLabel = this->Name.c_str();
-    }
   this->WriteString("<ProjectName>", 2);
   (*this->BuildFileStream) << cmVS10EscapeXML(projLabel) << "</ProjectName>\n";
   if(const char* targetFrameworkVersion = this->Target->GetProperty(
@@ -445,6 +458,8 @@ void cmVisualStudio10TargetGenerator::Generate()
     (*this->BuildFileStream) << cmVS10EscapeXML(targetFrameworkVersion)
                              << "</TargetFrameworkVersion>\n";
     }
+  this->WriteString("<VisualStudioCMakeGeneratedProject>true"
+                    "</VisualStudioCMakeGeneratedProject>\n", 2);
   this->WriteString("</PropertyGroup>\n", 1);
   this->WriteString("<Import Project="
                     "\"$(VCTargetsPath)\\Microsoft.Cpp.Default.props\" />\n",
@@ -652,7 +667,19 @@ void cmVisualStudio10TargetGenerator::WriteProjectConfigurations()
     this->WriteString("<Platform>", 3);
     (*this->BuildFileStream) << cmVS10EscapeXML(this->Platform)
                              << "</Platform>\n";
+    // We need to add an x86 configuration here for Visual Studio
+    // Android projects because they always expect an x86
+    // configuration in the project, and won't build otherwise
     this->WriteString("</ProjectConfiguration>\n", 2);
+    if(this->AndroidMDD && this->Platform != "x86")
+      {
+      this->WriteString("<ProjectConfiguration Include=\"", 2);
+      (*this->BuildFileStream) << *i << "|x86" << "\">\n";
+      this->WriteString("<Configuration>", 3);
+      (*this->BuildFileStream) << *i << "</Configuration>\n";
+      this->WriteString("<Platform>x86</Platform>\n", 3);
+      this->WriteString("</ProjectConfiguration>\n", 2);
+      }
     }
   this->WriteString("</ItemGroup>\n", 1);
 }
@@ -708,9 +735,13 @@ void cmVisualStudio10TargetGenerator::WriteProjectConfigurationValues()
     configType += "</ConfigurationType>\n";
     this->WriteString(configType.c_str(), 2);
 
-    if(this->MSTools)
+    if(this->MSTools && !this->AndroidMDD)
       {
       this->WriteMSToolConfigurationValues(*i);
+      }
+    else if(this->AndroidMDD)
+      {
+      this->WriteAndroidMDDConfigurationValues(*i);
       }
     else if(this->NsightTegra)
       {
@@ -813,6 +844,43 @@ void cmVisualStudio10TargetGenerator
     this->WriteString("<AndroidStlType>", 2);
     (*this->BuildFileStream) << cmVS10EscapeXML(stlType) <<
       "</AndroidStlType>\n";
+    }
+}
+
+void cmVisualStudio10TargetGenerator
+::WriteAndroidMDDConfigurationValues(std::string const& config)
+{
+  if(strcmpi(config.c_str(), "Debug") == 0)
+    {
+    this->WriteString("<UseDebugLibraries>", 2);
+    (*this->BuildFileStream) << cmVS10EscapeXML("true") <<
+        "</UseDebugLibraries>\n";
+    }
+  else
+    {
+    this->WriteString("<UseDebugLibraries>", 2);
+    (*this->BuildFileStream) << cmVS10EscapeXML("false") <<
+        "</UseDebugLibraries>\n";
+    }
+
+  if(const char* useOfStl = this->Target->GetProperty("VC_MDD_ANDROID_USE_OF_STL"))
+    {
+    this->WriteString("<UseOfStl>", 2);
+    (*this->BuildFileStream) << cmVS10EscapeXML(useOfStl) <<
+      "</UseOfStl>\n";
+    }
+  if(const char* apiLevel = this->Target->GetProperty("VC_MDD_ANDROID_API_LEVEL"))
+    {
+    this->WriteString("<AndroidAPILevel>", 2);
+    (*this->BuildFileStream) << cmVS10EscapeXML(apiLevel) <<
+      "</AndroidAPILevel>\n";
+    }
+  if(const char* platformToolset =
+      this->Target->GetProperty("VC_MDD_ANDROID_PLATFORM_TOOLSET"))
+    {
+    this->WriteString("<PlatformToolset>", 2);
+    (*this->BuildFileStream) << cmVS10EscapeXML(platformToolset) <<
+      "</PlatformToolset>\n";
     }
 }
 
@@ -1786,7 +1854,7 @@ void cmVisualStudio10TargetGenerator::WritePathAndIncrementalLinkOptions()
         {
         outDir = intermediateDir;
         targetNameFull = this->Target->GetName();
-        targetNameFull += ".lib";
+        targetNameFull += this->Target->IsAndroidMDD() ? ".a" : ".lib";
         }
       else
         {
@@ -1941,7 +2009,7 @@ bool cmVisualStudio10TargetGenerator::ComputeClOptions(
 
   // Get preprocessor definitions for this directory.
   std::string defineFlags = this->Target->GetMakefile()->GetDefineFlags();
-  if(this->MSTools)
+  if(this->MSTools && !this->AndroidMDD)
     {
     clOptions.FixExceptionHandlingDefault();
     clOptions.AddFlag("PrecompiledHeader", "NotUsing");
@@ -2030,7 +2098,7 @@ void cmVisualStudio10TargetGenerator::WriteClOptions(
       }
     }
 
-  if(this->MSTools)
+  if(this->MSTools && !this->AndroidMDD)
     {
     this->WriteString("<ObjectFileName>$(IntDir)</ObjectFileName>\n", 3);
 
@@ -2097,7 +2165,7 @@ void cmVisualStudio10TargetGenerator::
 WriteRCOptions(std::string const& configName,
                std::vector<std::string> const & includes)
 {
-  if(!this->MSTools)
+  if(!this->MSTools || this->AndroidMDD)
     {
     return;
     }
@@ -2162,7 +2230,7 @@ void cmVisualStudio10TargetGenerator::
 WriteMasmOptions(std::string const& configName,
                  std::vector<std::string> const& includes)
 {
-  if(!this->MSTools || !this->GlobalGenerator->IsMasmEnabled())
+  if(!this->MSTools || this->AndroidMDD || !this->GlobalGenerator->IsMasmEnabled())
     {
     return;
     }
@@ -2528,7 +2596,7 @@ cmVisualStudio10TargetGenerator::ComputeLinkOptions(std::string const& config)
                                   config.c_str());
     }
 
-  if(this->MSTools)
+  if(this->MSTools && !this->AndroidMDD)
     {
     linkOptions.AddFlag("Version", "");
 
@@ -2631,7 +2699,7 @@ cmVisualStudio10TargetGenerator::ComputeLinkOptions(std::string const& config)
 
   linkOptions.Parse(flags.c_str());
 
-  if(this->MSTools)
+  if(this->MSTools && !this->AndroidMDD)
     {
     std::string def = this->GeneratorTarget->GetModuleDefinitionFile("");
     if(!def.empty())
@@ -2710,7 +2778,7 @@ void cmVisualStudio10TargetGenerator::
 WriteMidlOptions(std::string const& /*config*/,
                  std::vector<std::string> const & includes)
 {
-  if(!this->MSTools)
+  if(!this->MSTools || this->AndroidMDD)
     {
     return;
     }
@@ -3175,12 +3243,20 @@ void cmVisualStudio10TargetGenerator::WriteApplicationTypeSettings()
         }
       }
     }
+  else if(this->AndroidMDD)
+    {
+    this->WriteString("<ApplicationType>Android</ApplicationType>\n", 2);
+    this->WriteString("<ApplicationTypeRevision>", 2);
+    (*this->BuildFileStream) <<
+      cmVS10EscapeXML(this->GlobalGenerator->GetAndroidMDDVersion()) <<
+      "</ApplicationTypeRevision>\n";
+    }
   if(isAppContainer)
     {
     this->WriteString("<AppContainerApplication>true"
                       "</AppContainerApplication>\n", 2);
     }
-  else if (this->Platform == "ARM")
+  else if (this->Platform == "ARM" && !this->AndroidMDD)
     {
     this->WriteString("<WindowsSDKDesktopARMSupport>true"
                       "</WindowsSDKDesktopARMSupport>\n", 2);

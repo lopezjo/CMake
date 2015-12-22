@@ -151,6 +151,7 @@ cmTarget::cmTarget()
   this->HaveInstallRule = false;
   this->DLLPlatform = false;
   this->IsAndroid = false;
+  this->AndroidMDD = false;
   this->IsApple = false;
   this->IsImportedTarget = false;
   this->BuildInterfaceIncludesAppended = false;
@@ -189,6 +190,10 @@ void cmTarget::SetMakefile(cmMakefile* mf)
   this->IsAndroid =
     strcmp(this->Makefile->GetSafeDefinition("CMAKE_SYSTEM_NAME"),
            "Android") == 0;
+
+  this->AndroidMDD =
+    strcmp(this->Makefile->GetSafeDefinition("CMAKE_SYSTEM_NAME"),
+           "VCMDDAndroid") == 0;
 
   // Check whether we are targeting an Apple platform.
   this->IsApple = this->Makefile->IsOn("APPLE");
@@ -250,6 +255,9 @@ void cmTarget::SetMakefile(cmMakefile* mf)
     this->SetPropertyDefault("CXX_EXTENSIONS", 0);
     this->SetPropertyDefault("LINK_SEARCH_START_STATIC", 0);
     this->SetPropertyDefault("LINK_SEARCH_END_STATIC", 0);
+    this->SetPropertyDefault("VC_MDD_ANDROID_USE_OF_STL", 0);
+    this->SetPropertyDefault("VC_MDD_ANDROID_API_LEVEL", 0);
+    this->SetPropertyDefault("VC_MDD_ANDROID_PLATFORM_TOOLSET", 0);
     }
 
   // Collect the set of configuration types.

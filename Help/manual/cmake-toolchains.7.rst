@@ -292,3 +292,20 @@ See also target properties:
 * :prop_tgt:`ANDROID_SECURE_PROPS_PATH`
 * :prop_tgt:`ANDROID_SKIP_ANT_STEP`
 * :prop_tgt:`ANDROID_STL_TYPE`
+
+Cross Compiling using Visual C++ for Mobile Development (Android support)
+-----------------------------------------
+
+A toolchain file to configure a Visual Studio generator to
+build using Visual C++ for Mobile Development targeting Android may look
+like this:
+
+.. code-block:: cmake
+
+  set(CMAKE_SYSTEM_NAME VCMDDAndroid)
+  set(CMAKE_SYSTEM_VERSION 1.0)
+
+See the :prop_tgt:`VC_MDD_ANDROID_USE_OF_STL`, :prop_tgt:`VC_MDD_ANDROID_API_LEVEL`
+and :prop_tgt:`VC_MDD_ANDROID_PLATFORM_TOOLSET` target properties
+to configure targets within the project.
+

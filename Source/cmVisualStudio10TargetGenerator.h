@@ -60,6 +60,7 @@ private:
   void WriteHeaderSource(cmSourceFile const* sf);
   void WriteExtraSource(cmSourceFile const* sf);
   void WriteNsightTegraConfigurationValues(std::string const& config);
+  void WriteAndroidMDDConfigurationValues(std::string const& config);
   void WriteSource(std::string const& tool, cmSourceFile const* sf,
                    const char* end = 0);
   void WriteSources(std::string const& tool,
@@ -157,6 +158,7 @@ private:
   bool MSTools;
   bool NsightTegra;
   int  NsightTegraVersion[4];
+  bool AndroidMDD;
   bool TargetCompileAsWinRT;
   cmGlobalVisualStudio10Generator* GlobalGenerator;
   cmGeneratedFileStream* BuildFileStream;
