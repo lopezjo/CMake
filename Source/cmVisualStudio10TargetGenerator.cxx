@@ -478,6 +478,14 @@ void cmVisualStudio10TargetGenerator::Generate()
   this->WriteString("<Import Project=\"" VS10_USER_PROPS "\""
                     " Condition=\"exists('" VS10_USER_PROPS "')\""
                     " Label=\"LocalAppDataPlatform\" />\n", 2);
+  if (const char* propSheet = this->Target->GetProperty(
+      "VS_CUSTOM_PROPERTYSHEET"))
+  {
+      std::string import = "<Import Project=\"";
+      import.append(propSheet);
+      import.append("\"/>\n");
+      this->WriteString(import.c_str(), 2);
+  }
   this->WritePlatformExtensions();
   this->WriteString("</ImportGroup>\n", 1);
   this->WriteString("<PropertyGroup Label=\"UserMacros\" />\n", 1);
