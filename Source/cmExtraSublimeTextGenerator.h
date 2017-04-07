@@ -18,7 +18,6 @@
 
 class cmLocalGenerator;
 class cmMakefile;
-class cmTarget;
 class cmGeneratedFileStream;
 class cmGeneratorTarget;
 
@@ -67,7 +66,7 @@ private:
   void AppendTarget(cmGeneratedFileStream& fout,
                     const std::string& targetName,
                     cmLocalGenerator* lg,
-                    cmTarget* target,
+                    cmGeneratorTarget* target,
                     const char* make,
                     const cmMakefile* makefile,
                     const char* compiler,
@@ -79,11 +78,10 @@ private:
    */
   std::string ComputeFlagsForObject(cmSourceFile *source,
                                     cmLocalGenerator* lg,
-                                    cmTarget *target,
                                     cmGeneratorTarget* gtgt);
 
   std::string ComputeDefines(cmSourceFile *source, cmLocalGenerator* lg,
-                             cmTarget *target, cmGeneratorTarget* gtgt);
+                             cmGeneratorTarget* gtgt);
 };
 
 #endif

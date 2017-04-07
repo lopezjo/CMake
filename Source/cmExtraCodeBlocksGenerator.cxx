@@ -17,7 +17,6 @@
 #include "cmake.h"
 #include "cmSourceFile.h"
 #include "cmGeneratedFileStream.h"
-#include "cmTarget.h"
 #include "cmSystemTools.h"
 #include "cmXMLSafe.h"
 
@@ -76,9 +75,8 @@ void cmExtraCodeBlocksGenerator::Generate()
 void cmExtraCodeBlocksGenerator::CreateProjectFile(
                                      const std::vector<cmLocalGenerator*>& lgs)
 {
-  const cmMakefile* mf=lgs[0]->GetMakefile();
-  std::string outputDir=mf->GetCurrentBinaryDirectory();
-  std::string projectName=mf->GetProjectName();
+  std::string outputDir=lgs[0]->GetCurrentBinaryDirectory();
+  std::string projectName=lgs[0]->GetProjectName();
 
   std::string filename=outputDir+"/";
   filename+=projectName+".cbp";
@@ -273,7 +271,7 @@ void cmExtraCodeBlocksGenerator
         }
 
       const std::string &relative = cmSystemTools::RelativePath(
-                         it->second[0]->GetMakefile()->GetHomeDirectory(),
+                         it->second[0]->GetSourceDirectory(),
                          jt->c_str());
       std::vector<std::string> splitted;
       cmSystemTools::SplitPath(relative, splitted, false);
@@ -297,7 +295,7 @@ void cmExtraCodeBlocksGenerator
   tree.BuildVirtualFolder(virtualFolders);
   // And one for <Unit>
   std::string unitFiles;
-  tree.BuildUnit(unitFiles, std::string(mf->GetHomeDirectory()) + "/");
+  tree.BuildUnit(unitFiles, std::string(lgs[0]->GetSourceDirectory()) + "/");
 
   // figure out the compiler
   std::string compiler = this->GetCBCompilerId(mf);
@@ -307,7 +305,7 @@ void cmExtraCodeBlocksGenerator
         "<CodeBlocks_project_file>\n"
         "   <FileVersion major=\"1\" minor=\"6\" />\n"
         "   <Project>\n"
-        "      <Option title=\"" << mf->GetProjectName()<<"\" />\n"
+        "      <Option title=\"" << lgs[0]->GetProjectName()<<"\" />\n"
         "      <Option makefile_is_custom=\"1\" />\n"
         "      <Option compiler=\"" << compiler << "\" />\n"
         "      "<<virtualFolders<<"\n"
@@ -320,50 +318,52 @@ void cmExtraCodeBlocksGenerator
   for (std::vector<cmLocalGenerator*>::const_iterator lg=lgs.begin();
        lg!=lgs.end(); lg++)
     {
-    cmMakefile* makefile=(*lg)->GetMakefile();
-    cmTargets& targets=makefile->GetTargets();
-    for (cmTargets::iterator ti = targets.begin();
+    std::vector<cmGeneratorTarget*> targets=(*lg)->GetGeneratorTargets();
+    for (std::vector<cmGeneratorTarget*>::iterator ti = targets.begin();
          ti != targets.end(); ti++)
       {
-      switch(ti->second.GetType())
+      std::string targetName = (*ti)->GetName();
+      switch((*ti)->GetType())
         {
-        case cmTarget::GLOBAL_TARGET:
+        case cmState::GLOBAL_TARGET:
           {
           // Only add the global targets from CMAKE_BINARY_DIR,
           // not from the subdirs
-          if (strcmp(makefile->GetCurrentBinaryDirectory(),
-                     makefile->GetHomeOutputDirectory())==0)
+          if (strcmp((*lg)->GetCurrentBinaryDirectory(),
+                     (*lg)->GetBinaryDirectory())==0)
             {
-            this->AppendTarget(fout, ti->first, 0,
+            this->AppendTarget(fout, targetName, 0,
                                make.c_str(), *lg, compiler.c_str());
             }
           }
           break;
-        case cmTarget::UTILITY:
+        case cmState::UTILITY:
           // Add all utility targets, except the Nightly/Continuous/
           // Experimental-"sub"targets as e.g. NightlyStart
-          if (((ti->first.find("Nightly")==0)   &&(ti->first!="Nightly"))
-             || ((ti->first.find("Continuous")==0)&&(ti->first!="Continuous"))
-             || ((ti->first.find("Experimental")==0)
-                                               && (ti->first!="Experimental")))
+          if (((targetName.find("Nightly")==0)   &&(targetName!="Nightly"))
+             || ((targetName.find("Continuous")==0)
+                 &&(targetName!="Continuous"))
+             || ((targetName.find("Experimental")==0)
+                                             && (targetName!="Experimental")))
             {
             break;
             }
 
-          this->AppendTarget(fout, ti->first, 0,
+          this->AppendTarget(fout, targetName, 0,
                                  make.c_str(), *lg, compiler.c_str());
           break;
-        case cmTarget::EXECUTABLE:
-        case cmTarget::STATIC_LIBRARY:
-        case cmTarget::SHARED_LIBRARY:
-        case cmTarget::MODULE_LIBRARY:
-        case cmTarget::OBJECT_LIBRARY:
+        case cmState::EXECUTABLE:
+        case cmState::STATIC_LIBRARY:
+        case cmState::SHARED_LIBRARY:
+        case cmState::MODULE_LIBRARY:
+        case cmState::OBJECT_LIBRARY:
           {
-          this->AppendTarget(fout, ti->first, &ti->second,
+          cmGeneratorTarget* gt = *ti;
+          this->AppendTarget(fout, targetName, gt,
                              make.c_str(), *lg, compiler.c_str());
-          std::string fastTarget = ti->first;
+          std::string fastTarget = targetName;
           fastTarget += "/fast";
-          this->AppendTarget(fout, fastTarget, &ti->second,
+          this->AppendTarget(fout, fastTarget, gt,
                              make.c_str(), *lg, compiler.c_str());
           }
           break;
@@ -383,25 +383,29 @@ void cmExtraCodeBlocksGenerator
   all_files_map_t allFiles;
   std::vector<std::string> cFiles;
 
+  std::vector<std::string> srcExts =
+      this->GlobalGenerator->GetCMakeInstance()->GetSourceExtensions();
+
   for (std::vector<cmLocalGenerator*>::const_iterator lg=lgs.begin();
        lg!=lgs.end(); lg++)
     {
     cmMakefile* makefile=(*lg)->GetMakefile();
-    cmTargets& targets=makefile->GetTargets();
-    for (cmTargets::iterator ti = targets.begin();
+    std::vector<cmGeneratorTarget*> targets=(*lg)->GetGeneratorTargets();
+    for (std::vector<cmGeneratorTarget*>::iterator ti = targets.begin();
          ti != targets.end(); ti++)
       {
-      switch(ti->second.GetType())
+      switch((*ti)->GetType())
         {
-        case cmTarget::EXECUTABLE:
-        case cmTarget::STATIC_LIBRARY:
-        case cmTarget::SHARED_LIBRARY:
-        case cmTarget::MODULE_LIBRARY:
-        case cmTarget::OBJECT_LIBRARY:
-        case cmTarget::UTILITY: // can have sources since 2.6.3
+        case cmState::EXECUTABLE:
+        case cmState::STATIC_LIBRARY:
+        case cmState::SHARED_LIBRARY:
+        case cmState::MODULE_LIBRARY:
+        case cmState::OBJECT_LIBRARY:
+        case cmState::UTILITY: // can have sources since 2.6.3
           {
           std::vector<cmSourceFile*> sources;
-          ti->second.GetSourceFiles(sources,
+          cmGeneratorTarget* gt = *ti;
+          gt->GetSourceFiles(sources,
                             makefile->GetSafeDefinition("CMAKE_BUILD_TYPE"));
           for (std::vector<cmSourceFile*>::const_iterator si=sources.begin();
                si!=sources.end(); si++)
@@ -419,9 +423,7 @@ void cmExtraCodeBlocksGenerator
               {
               std::string srcext = (*si)->GetExtension();
               for(std::vector<std::string>::const_iterator
-                  ext = mf->GetSourceExtensions().begin();
-                  ext !=  mf->GetSourceExtensions().end();
-                  ++ext)
+                  ext = srcExts.begin(); ext != srcExts.end(); ++ext)
                 {
                 if (srcext == *ext)
                   {
@@ -439,7 +441,7 @@ void cmExtraCodeBlocksGenerator
               }
 
             CbpUnit &cbpUnit = allFiles[fullPath];
-            cbpUnit.Targets.push_back(&(ti->second));
+            cbpUnit.Targets.push_back(*ti);
             }
           }
         default:  // intended fallthrough
@@ -447,6 +449,9 @@ void cmExtraCodeBlocksGenerator
         }
       }
     }
+
+  std::vector<std::string> headerExts =
+      this->GlobalGenerator->GetCMakeInstance()->GetHeaderExtensions();
 
   // The following loop tries to add header files matching to implementation
   // files to the project. It does that by iterating over all
@@ -467,8 +472,8 @@ void cmExtraCodeBlocksGenerator
 
     // check if there's a matching header around
     for(std::vector<std::string>::const_iterator
-        ext = mf->GetHeaderExtensions().begin();
-        ext !=  mf->GetHeaderExtensions().end();
+        ext = headerExts.begin();
+        ext != headerExts.end();
         ++ext)
       {
       std::string hname=headerBasename;
@@ -499,8 +504,9 @@ void cmExtraCodeBlocksGenerator
 
     fout<<"      <Unit filename=\""<< cmXMLSafe(unitFilename) <<"\">\n";
 
-    for(std::vector<const cmTarget*>::const_iterator ti = unit.Targets.begin();
-      ti != unit.Targets.end(); ++ti)
+    for(std::vector<const cmGeneratorTarget*>::const_iterator ti =
+        unit.Targets.begin();
+        ti != unit.Targets.end(); ++ti)
       {
       std::string const& targetName = (*ti)->GetName();
       fout<<"         <Option target=\""<< cmXMLSafe(targetName) <<"\"/>\n";
@@ -520,15 +526,14 @@ void cmExtraCodeBlocksGenerator
 // Write a dummy file for OBJECT libraries, so C::B can reference some file
 std::string cmExtraCodeBlocksGenerator::CreateDummyTargetFile(
                                         cmLocalGenerator* lg,
-                                        cmTarget* target) const
+                                        cmGeneratorTarget* target) const
 {
-  cmMakefile *mf = lg->GetMakefile();
   // this file doesn't seem to be used by C::B in custom makefile mode,
   // but we generate a unique file for each OBJECT library so in case
   // C::B uses it in some way, the targets don't interfere with each other.
-  std::string filename = mf->GetCurrentBinaryDirectory();
+  std::string filename = lg->GetCurrentBinaryDirectory();
   filename += "/";
-  filename += lg->GetTargetDirectory(*target);
+  filename += lg->GetTargetDirectory(target);
   filename += "/";
   filename += target->GetName();
   filename += ".objlib";
@@ -547,21 +552,21 @@ std::string cmExtraCodeBlocksGenerator::CreateDummyTargetFile(
 // Generate the xml code for one target.
 void cmExtraCodeBlocksGenerator::AppendTarget(cmGeneratedFileStream& fout,
                                               const std::string& targetName,
-                                              cmTarget* target,
+                                              cmGeneratorTarget* target,
                                               const char* make,
                                               const cmLocalGenerator* lg,
                                               const char* compiler)
 {
   cmMakefile const* makefile = lg->GetMakefile();
-  std::string makefileName = makefile->GetCurrentBinaryDirectory();
+  std::string makefileName = lg->GetCurrentBinaryDirectory();
   makefileName += "/Makefile";
 
   fout<<"      <Target title=\"" << targetName << "\">\n";
   if (target!=0)
     {
     int cbTargetType = this->GetCBTargetType(target);
-    std::string workingDir = makefile->GetCurrentBinaryDirectory();
-    if ( target->GetType()==cmTarget::EXECUTABLE)
+    std::string workingDir = lg->GetCurrentBinaryDirectory();
+    if ( target->GetType()==cmState::EXECUTABLE)
       {
       // Determine the directory where the executable target is created, and
       // set the working directory to this dir.
@@ -584,16 +589,14 @@ void cmExtraCodeBlocksGenerator::AppendTarget(cmGeneratedFileStream& fout,
 
     std::string buildType = makefile->GetSafeDefinition("CMAKE_BUILD_TYPE");
     std::string location;
-    if ( target->GetType()==cmTarget::OBJECT_LIBRARY)
+    if ( target->GetType()==cmState::OBJECT_LIBRARY)
       {
       location = this->CreateDummyTargetFile(const_cast<cmLocalGenerator*>(lg),
                                              target);
       }
     else
       {
-      cmGeneratorTarget* gt =
-          this->GlobalGenerator->GetGeneratorTarget(target);
-      location = gt->GetLocation(buildType);
+      location = target->GetLocation(buildType);
       }
 
     fout<<"         <Option output=\"" << location
@@ -604,12 +607,9 @@ void cmExtraCodeBlocksGenerator::AppendTarget(cmGeneratedFileStream& fout,
           "         <Option compiler=\"" << compiler << "\" />\n"
           "         <Compiler>\n";
 
-    cmGeneratorTarget *gtgt = this->GlobalGenerator
-                                  ->GetGeneratorTarget(target);
-
     // the compilerdefines for this target
     std::vector<std::string> cdefs;
-    gtgt->GetCompileDefinitions(cdefs, buildType, "C");
+    target->GetCompileDefinitions(cdefs, buildType, "C");
 
     // Expand the list.
     for(std::vector<std::string>::const_iterator di = cdefs.begin();
@@ -623,7 +623,7 @@ void cmExtraCodeBlocksGenerator::AppendTarget(cmGeneratedFileStream& fout,
     std::set<std::string> uniqIncludeDirs;
 
     std::vector<std::string> includes;
-    lg->GetIncludeDirectories(includes, gtgt, "C", buildType);
+    lg->GetIncludeDirectories(includes, target, "C", buildType);
 
     uniqIncludeDirs.insert(includes.begin(), includes.end());
 
@@ -657,7 +657,7 @@ void cmExtraCodeBlocksGenerator::AppendTarget(cmGeneratedFileStream& fout,
   else // e.g. all and the GLOBAL and UTILITY targets
     {
     fout<<"         <Option working_dir=\""
-        << makefile->GetCurrentBinaryDirectory() << "\" />\n"
+        << lg->GetCurrentBinaryDirectory() << "\" />\n"
         <<"         <Option type=\"" << 4 << "\" />\n";
     }
 
@@ -691,8 +691,6 @@ std::string cmExtraCodeBlocksGenerator::GetCBCompilerId(const cmMakefile* mf)
     compilerIdVar = "CMAKE_C_COMPILER_ID";
     }
 
-  std::string hostSystemName = mf->GetSafeDefinition("CMAKE_HOST_SYSTEM_NAME");
-  std::string systemName = mf->GetSafeDefinition("CMAKE_SYSTEM_NAME");
   std::string compilerId = mf->GetSafeDefinition(compilerIdVar);
   std::string compiler = "gcc";  // default to gcc
   if (compilerId == "MSVC")
@@ -724,9 +722,9 @@ std::string cmExtraCodeBlocksGenerator::GetCBCompilerId(const cmMakefile* mf)
 
 
 // Translate the cmake target type into the CodeBlocks target type id
-int cmExtraCodeBlocksGenerator::GetCBTargetType(cmTarget* target)
+int cmExtraCodeBlocksGenerator::GetCBTargetType(cmGeneratorTarget* target)
 {
-  if ( target->GetType()==cmTarget::EXECUTABLE)
+  if ( target->GetType()==cmState::EXECUTABLE)
     {
     if ((target->GetPropertyAsBool("WIN32_EXECUTABLE"))
         || (target->GetPropertyAsBool("MACOSX_BUNDLE")))
@@ -738,13 +736,13 @@ int cmExtraCodeBlocksGenerator::GetCBTargetType(cmTarget* target)
       return 1;
       }
     }
-  else if (( target->GetType()==cmTarget::STATIC_LIBRARY)
-        || (target->GetType()==cmTarget::OBJECT_LIBRARY))
+  else if (( target->GetType()==cmState::STATIC_LIBRARY)
+        || (target->GetType()==cmState::OBJECT_LIBRARY))
     {
     return 2;
     }
-  else if ((target->GetType()==cmTarget::SHARED_LIBRARY)
-           || (target->GetType()==cmTarget::MODULE_LIBRARY))
+  else if ((target->GetType()==cmState::SHARED_LIBRARY)
+           || (target->GetType()==cmState::MODULE_LIBRARY))
     {
     return 3;
     }

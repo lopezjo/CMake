@@ -12,7 +12,7 @@
 
 #include "cmGeneratorExpressionDAGChecker.h"
 
-#include "cmMakefile.h"
+#include "cmLocalGenerator.h"
 #include "cmAlgorithms.h"
 
 //----------------------------------------------------------------------------
@@ -110,7 +110,7 @@ void cmGeneratorExpressionDAGChecker::ReportError(
       << "  " << expr << "\n"
       << "Self reference on target \""
       << context->HeadTarget->GetName() << "\".\n";
-    context->Makefile->GetCMakeInstance()
+    context->LG->GetCMakeInstance()
       ->IssueMessage(cmake::FATAL_ERROR, e.str(),
                       parent->Backtrace);
     return;
@@ -121,7 +121,7 @@ void cmGeneratorExpressionDAGChecker::ReportError(
   e << "Error evaluating generator expression:\n"
     << "  " << expr << "\n"
     << "Dependency loop found.";
-  context->Makefile->GetCMakeInstance()
+  context->LG->GetCMakeInstance()
     ->IssueMessage(cmake::FATAL_ERROR, e.str(),
                     context->Backtrace);
   }
@@ -134,7 +134,7 @@ void cmGeneratorExpressionDAGChecker::ReportError(
       << "  "
       << (parent->Content ? parent->Content->GetOriginalExpression() : expr)
       << "\n";
-    context->Makefile->GetCMakeInstance()
+    context->LG->GetCMakeInstance()
       ->IssueMessage(cmake::FATAL_ERROR, e.str(),
                       parent->Backtrace);
     parent = parent->Parent;

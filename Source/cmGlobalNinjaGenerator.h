@@ -74,6 +74,12 @@ public:
   static void WriteComment(std::ostream& os, const std::string& comment);
 
   /**
+   * Utilized by the generator factory to determine if this generator
+   * supports toolsets.
+   */
+  static bool SupportsToolset() { return false; }
+
+  /**
    * Write a build statement to @a os with the @a comment using
    * the @a rule the list of @a outputs files and inputs.
    * It also writes the variables bound to this build statement.
@@ -106,6 +112,7 @@ public:
                                const std::string& description,
                                const std::string& comment,
                                bool uses_terminal,
+                               bool restat,
                                const cmNinjaDeps& outputs,
                                const cmNinjaDeps& deps = cmNinjaDeps(),
                                const cmNinjaDeps& orderOnly = cmNinjaDeps());
@@ -285,9 +292,11 @@ public:
     ASD.insert(deps.begin(), deps.end());
   }
 
-  void AppendTargetOutputs(cmTarget const* target, cmNinjaDeps& outputs);
-  void AppendTargetDepends(cmTarget const* target, cmNinjaDeps& outputs);
-  void AddDependencyToAll(cmTarget* target);
+  void AppendTargetOutputs(cmGeneratorTarget const* target,
+                           cmNinjaDeps& outputs);
+  void AppendTargetDepends(cmGeneratorTarget const* target,
+                           cmNinjaDeps& outputs);
+  void AddDependencyToAll(cmGeneratorTarget* target);
   void AddDependencyToAll(const std::string& input);
 
   const std::vector<cmLocalGenerator*>& GetLocalGenerators() const {
@@ -299,11 +308,10 @@ public:
   int GetRuleCmdLength(const std::string& name) {
     return RuleCmdLength[name]; }
 
-  void AddTargetAlias(const std::string& alias, cmTarget* target);
+  void AddTargetAlias(const std::string& alias, cmGeneratorTarget* target);
 
   virtual void ComputeTargetObjectDirectory(cmGeneratorTarget* gt) const;
 
-  std::string CurrentNinjaVersion() const;
   // Ninja generator uses 'deps' and 'msvc_deps_prefix' introduced in 1.3
   static std::string RequiredNinjaVersion() { return "1.3"; }
   static std::string RequiredNinjaVersionForConsolePool() { return "1.5"; }
@@ -318,7 +326,7 @@ protected:
 
 private:
   virtual std::string GetEditCacheCommand() const;
-
+  virtual void FindMakeProgram(cmMakefile* mf);
 
   void OpenBuildFileStream();
   void CloseBuildFileStream();
@@ -388,8 +396,11 @@ private:
   /// The mapping from source file to assumed dependencies.
   std::map<std::string, std::set<std::string> > AssumedSourceDependencies;
 
-  typedef std::map<std::string, cmTarget*> TargetAliasMap;
+  typedef std::map<std::string, cmGeneratorTarget*> TargetAliasMap;
   TargetAliasMap TargetAliases;
+
+  std::string NinjaCommand;
+  std::string NinjaVersion;
 };
 
 #endif // ! cmGlobalNinjaGenerator_h

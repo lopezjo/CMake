@@ -37,6 +37,7 @@
 #
 # Set ``OPENSSL_ROOT_DIR`` to the root directory of an OpenSSL installation.
 # Set ``OPENSSL_USE_STATIC_LIBS`` to ``TRUE`` to look for static libraries.
+# Set ``OPENSSL_MSVC_STATIC_RT`` set ``TRUE`` to choose the MT version of the lib.
 
 #=============================================================================
 # Copyright 2006-2009 Kitware, Inc.
@@ -113,7 +114,7 @@ if(WIN32 AND NOT CYGWIN)
     # /MD and /MDd are the standard values - if someone wants to use
     # others, the libnames have to change here too
     # use also ssl and ssleay32 in debug as fallback for openssl < 0.9.8b
-    # TODO: handle /MT and static lib
+    # enable OPENSSL_MSVC_STATIC_RT to get the libs build /MT (Multithreaded no-DLL)
     # In Visual C++ naming convention each of these four kinds of Windows libraries has it's standard suffix:
     #   * MD for dynamic-release
     #   * MDd for dynamic-debug
@@ -125,6 +126,12 @@ if(WIN32 AND NOT CYGWIN)
     # libeay32MD.lib is identical to ../libeay32.lib, and
     # ssleay32MD.lib is identical to ../ssleay32.lib
     # enable OPENSSL_USE_STATIC_LIBS to use the static libs located in lib/VC/static
+
+    if (OPENSSL_MSVC_STATIC_RT)
+      set(_OPENSSL_MSVC_RT_MODE "MT")
+    else ()
+      set(_OPENSSL_MSVC_RT_MODE "MD")
+    endif ()
 
     if(OPENSSL_USE_STATIC_LIBS)
       set(_OPENSSL_PATH_SUFFIXES
@@ -142,7 +149,7 @@ if(WIN32 AND NOT CYGWIN)
 
     find_library(LIB_EAY_DEBUG
       NAMES
-        libeay32MDd
+        libeay32${_OPENSSL_MSVC_RT_MODE}d
         libeay32d
       ${_OPENSSL_ROOT_HINTS_AND_PATHS}
       PATH_SUFFIXES
@@ -151,7 +158,7 @@ if(WIN32 AND NOT CYGWIN)
 
     find_library(LIB_EAY_RELEASE
       NAMES
-        libeay32MD
+        libeay32${_OPENSSL_MSVC_RT_MODE}
         libeay32
       ${_OPENSSL_ROOT_HINTS_AND_PATHS}
       PATH_SUFFIXES
@@ -160,7 +167,7 @@ if(WIN32 AND NOT CYGWIN)
 
     find_library(SSL_EAY_DEBUG
       NAMES
-        ssleay32MDd
+        ssleay32${_OPENSSL_MSVC_RT_MODE}d
         ssleay32d
       ${_OPENSSL_ROOT_HINTS_AND_PATHS}
       PATH_SUFFIXES
@@ -169,7 +176,7 @@ if(WIN32 AND NOT CYGWIN)
 
     find_library(SSL_EAY_RELEASE
       NAMES
-        ssleay32MD
+        ssleay32${_OPENSSL_MSVC_RT_MODE}
         ssleay32
         ssl
       ${_OPENSSL_ROOT_HINTS_AND_PATHS}
@@ -193,12 +200,8 @@ if(WIN32 AND NOT CYGWIN)
     set(OPENSSL_LIBRARIES ${SSL_EAY_LIBRARY} ${LIB_EAY_LIBRARY} )
   elseif(MINGW)
     # same player, for MinGW
-    set(LIB_EAY_NAMES libeay32)
-    set(SSL_EAY_NAMES ssleay32)
-    if(CMAKE_CROSSCOMPILING)
-      list(APPEND LIB_EAY_NAMES crypto)
-      list(APPEND SSL_EAY_NAMES ssl)
-    endif()
+    set(LIB_EAY_NAMES crypto libeay32)
+    set(SSL_EAY_NAMES ssl ssleay32)
     find_library(LIB_EAY
       NAMES
         ${LIB_EAY_NAMES}
@@ -318,7 +321,7 @@ endfunction()
 if (OPENSSL_INCLUDE_DIR)
   if(OPENSSL_INCLUDE_DIR AND EXISTS "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h")
     file(STRINGS "${OPENSSL_INCLUDE_DIR}/openssl/opensslv.h" openssl_version_str
-         REGEX "^# *define[\t ]+OPENSSL_VERSION_NUMBER[\t ]+0x([0-9a-fA-F])+.*")
+         REGEX "^#[\t ]*define[\t ]+OPENSSL_VERSION_NUMBER[\t ]+0x([0-9a-fA-F])+.*")
 
     # The version number is encoded as 0xMNNFFPPS: major minor fix patch status
     # The status gives if this is a developer or prerelease and is ignored here.

@@ -177,6 +177,7 @@ add_RunCMake_test(build_command)
 add_RunCMake_test(execute_process)
 add_RunCMake_test(export)
 add_RunCMake_test(cmake_minimum_required)
+add_RunCMake_test(cmake_parse_arguments)
 add_RunCMake_test(continue)
 add_RunCMake_test(ctest_build)
 add_RunCMake_test(ctest_configure)
@@ -237,6 +238,12 @@ endif()
 
 if(XCODE_VERSION AND NOT "${XCODE_VERSION}" VERSION_LESS 3)
   add_RunCMake_test(XcodeProject -DXCODE_VERSION=${XCODE_VERSION})
+endif()
+
+if(NOT XCODE
+    AND CMAKE_C_COMPILER_ID STREQUAL "AppleClang"
+    AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS 6.0)
+  add_RunCMake_test(Framework)
 endif()
 
 add_RunCMake_test(File_Generate)

@@ -26,17 +26,16 @@ cmLocalGhsMultiGenerator::~cmLocalGhsMultiGenerator() {}
 
 void cmLocalGhsMultiGenerator::Generate()
 {
-  cmGeneratorTargetsType tgts = this->GetMakefile()->GetGeneratorTargets();
+  std::vector<cmGeneratorTarget*> tgts = this->GetGeneratorTargets();
 
-  for (cmGeneratorTargetsType::iterator l = tgts.begin(); l != tgts.end();
-       ++l)
+  for (std::vector<cmGeneratorTarget*>::iterator l = tgts.begin();
+       l != tgts.end(); ++l)
     {
-    if (l->second->Target->GetType() == cmTarget::INTERFACE_LIBRARY
-        || l->second->Target->IsImported())
+    if ((*l)->GetType() == cmState::INTERFACE_LIBRARY)
       {
       continue;
       }
-    cmGhsMultiTargetGenerator tg(l->second);
+    cmGhsMultiTargetGenerator tg(*l);
     tg.Generate();
     }
 }

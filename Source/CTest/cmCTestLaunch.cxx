@@ -728,7 +728,6 @@ int cmCTestLaunch::Main(int argc, const char* const argv[])
 
 //----------------------------------------------------------------------------
 #include "cmGlobalGenerator.h"
-#include "cmLocalGenerator.h"
 #include "cmMakefile.h"
 #include "cmake.h"
 #include <cmsys/auto_ptr.hxx>
@@ -737,10 +736,9 @@ void cmCTestLaunch::LoadConfig()
   cmake cm;
   cm.SetHomeDirectory("");
   cm.SetHomeOutputDirectory("");
+  cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator gg(&cm);
   cmsys::auto_ptr<cmMakefile> mf(new cmMakefile(&gg, cm.GetCurrentSnapshot()));
-  cmsys::auto_ptr<cmLocalGenerator> lg(
-        gg.CreateLocalGenerator(mf.get()));
   std::string fname = this->LogDir;
   fname += "CTestLaunchConfig.cmake";
   if(cmSystemTools::FileExists(fname.c_str()) &&

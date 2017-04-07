@@ -20,7 +20,6 @@
 class cmMakefile;
 class cmGlobalGenerator;
 class cmGeneratorTarget;
-class cmTarget;
 class cmTargetManifest;
 class cmSourceFile;
 class cmCustomCommand;
@@ -68,6 +67,8 @@ public:
    */
   void ComputeTargetManifest();
 
+  bool IsRootMakefile() const;
+
   ///! Get the makefile for this generator
   cmMakefile *GetMakefile() {
     return this->Makefile; }
@@ -91,13 +92,15 @@ public:
 
   void AddLanguageFlags(std::string& flags, const std::string& lang,
                         const std::string& config);
-  void AddCMP0018Flags(std::string &flags, cmTarget const* target,
+  void AddCMP0018Flags(std::string &flags, cmGeneratorTarget const* target,
                        std::string const& lang, const std::string& config);
-  void AddVisibilityPresetFlags(std::string &flags, cmTarget const* target,
+  void AddVisibilityPresetFlags(std::string &flags,
+                                cmGeneratorTarget const* target,
                                 const std::string& lang);
   void AddConfigVariableFlags(std::string& flags, const std::string& var,
                               const std::string& config);
-  void AddCompilerRequirementFlag(std::string &flags, cmTarget const* target,
+  void AddCompilerRequirementFlag(std::string &flags,
+                                  cmGeneratorTarget const* target,
                                   const std::string& lang);
   ///! Append flags to a string.
   virtual void AppendFlags(std::string& flags, const std::string& newFlags);
@@ -111,6 +114,24 @@ public:
                               bool forceFullPaths = false,
                               bool forResponseFile = false,
                               const std::string& config = "");
+
+  const std::vector<cmGeneratorTarget*> &GetGeneratorTargets() const
+    {
+      return this->GeneratorTargets;
+    }
+
+  const std::vector<cmGeneratorTarget*> &GetImportedGeneratorTargets() const
+    {
+      return this->ImportedGeneratorTargets;
+    }
+
+  void AddGeneratorTarget(cmGeneratorTarget* gt);
+  void AddImportedGeneratorTarget(cmGeneratorTarget* gt);
+  void AddOwnedImportedGeneratorTarget(cmGeneratorTarget* gt);
+
+  cmGeneratorTarget*
+    FindLocalNonAliasGeneratorTarget(const std::string& name) const;
+  cmGeneratorTarget* FindGeneratorTargetToUse(const std::string& name) const;
 
   /**
    * Encode a list of preprocessor definitions for the compiler
@@ -171,23 +192,25 @@ public:
 
   /** Get the include flags for the current makefile and language.  */
   void GetIncludeDirectories(std::vector<std::string>& dirs,
-                             cmGeneratorTarget* target,
+                             cmGeneratorTarget const* target,
                              const std::string& lang = "C",
                              const std::string& config = "",
                              bool stripImplicitInclDirs = true) const;
-  void AddCompileOptions(std::string& flags, cmTarget* target,
+  void AddCompileOptions(std::string& flags, cmGeneratorTarget* target,
                          const std::string& lang, const std::string& config);
   void AddCompileDefinitions(std::set<std::string>& defines,
-                             cmTarget const* target,
+                             cmGeneratorTarget const* target,
                              const std::string& config,
                              const std::string& lang);
+
+  std::string GetProjectName() const;
 
   /** Compute the language used to compile the given source file.  */
   std::string GetSourceFileLanguage(const cmSourceFile& source);
 
   // Fill the vector with the target names for the object files,
   // preprocessed files and assembly files.
-  virtual void GetIndividualFileTargets(std::vector<std::string>&) {}
+  void GetIndividualFileTargets(std::vector<std::string>&) {}
 
   // Create a struct to hold the varibles passed into
   // ExpandRuleVariables
@@ -197,7 +220,7 @@ public:
       {
         memset(this, 0,  sizeof(*this));
       }
-    cmTarget* CMTarget;
+    cmGeneratorTarget* CMTarget;
     const char* TargetPDB;
     const char* TargetCompilePDB;
     const char* TargetVersionMajor;
@@ -232,7 +255,8 @@ public:
    * Get the relative path from the generator output directory to a
    * per-target support directory.
    */
-  virtual std::string GetTargetDirectory(cmTarget const& target) const;
+  virtual std::string
+  GetTargetDirectory(cmGeneratorTarget const* target) const;
 
   /**
    * Get the level of backwards compatibility requested by the project
@@ -244,23 +268,34 @@ public:
    *
    * and is monotonically increasing with the CMake version.
    */
-  cmIML_INT_uint64_t GetBackwardsCompatibility();
+  KWIML_INT_uint64_t GetBackwardsCompatibility();
 
   /**
    * Test whether compatibility is set to a given version or lower.
    */
   bool NeedBackwardsCompatibility_2_4();
 
+  cmPolicies::PolicyStatus GetPolicyStatus(cmPolicies::PolicyID id) const;
+
+  cmake* GetCMakeInstance() const;
+
+  const char* GetSourceDirectory() const;
+  const char* GetBinaryDirectory() const;
+
+  const char* GetCurrentBinaryDirectory() const;
+  const char* GetCurrentSourceDirectory() const;
+
   /**
    * Generate a Mac OS X application bundle Info.plist file.
    */
-  void GenerateAppleInfoPList(cmTarget* target, const std::string& targetName,
+  void GenerateAppleInfoPList(cmGeneratorTarget* target,
+                              const std::string& targetName,
                               const char* fname);
 
   /**
    * Generate a Mac OS X framework Info.plist file.
    */
-  void GenerateFrameworkInfoPList(cmTarget* target,
+  void GenerateFrameworkInfoPList(cmGeneratorTarget* target,
                                   const std::string& targetName,
                                   const char* fname);
   /** Construct a comment for a custom command.  */
@@ -274,7 +309,7 @@ public:
   /** Fill out the static linker flags for the given target.  */
   void GetStaticLibraryFlags(std::string& flags,
                              std::string const& config,
-                             cmTarget* target);
+                             cmGeneratorTarget* target);
 
   /** Fill out these strings for the given target.  Libraries to link,
    *  flags, and linkflags. */
@@ -317,8 +352,9 @@ protected:
   std::string ExpandRuleVariable(std::string const& variable,
                                  const RuleVariables& replaceValues);
 
-  const char* GetRuleLauncher(cmTarget* target, const std::string& prop);
-  void InsertRuleLauncher(std::string& s, cmTarget* target,
+  const char* GetRuleLauncher(cmGeneratorTarget* target,
+                              const std::string& prop);
+  void InsertRuleLauncher(std::string& s, cmGeneratorTarget* target,
                           const std::string& prop);
 
   // Handle old-style install rules stored in the targets.
@@ -343,7 +379,11 @@ protected:
   std::string::size_type ObjectPathMax;
   std::set<std::string> ObjectMaxPathViolations;
 
-  std::set<cmTarget const*> WarnCMP0063;
+  std::set<cmGeneratorTarget const*> WarnCMP0063;
+  std::vector<cmGeneratorTarget*> GeneratorTargets;
+  std::vector<cmGeneratorTarget*> ImportedGeneratorTargets;
+  std::vector<cmGeneratorTarget*> OwnedImportedGeneratorTargets;
+  std::map<std::string, std::string> AliasTargets;
 
   bool EmitUniversalBinaryFlags;
 
@@ -351,7 +391,7 @@ protected:
   // committed.
   std::string TargetImplib;
 
-  cmIML_INT_uint64_t BackwardsCompatibility;
+  KWIML_INT_uint64_t BackwardsCompatibility;
   bool BackwardsCompatibilityFinal;
 private:
   void AddSharedFlags(std::string& flags, const std::string& lang,

@@ -31,7 +31,7 @@ cmLocalXCodeGenerator::~cmLocalXCodeGenerator()
 
 //----------------------------------------------------------------------------
 std::string
-cmLocalXCodeGenerator::GetTargetDirectory(cmTarget const&) const
+cmLocalXCodeGenerator::GetTargetDirectory(cmGeneratorTarget const*) const
 {
   // No per-target directory for this generator (yet).
   return "";
@@ -51,12 +51,11 @@ void cmLocalXCodeGenerator::Generate()
 {
   cmLocalGenerator::Generate();
 
-  cmTargets& targets = this->Makefile->GetTargets();
-  for(cmTargets::iterator iter = targets.begin();
+  std::vector<cmGeneratorTarget*> targets = this->GetGeneratorTargets();
+  for(std::vector<cmGeneratorTarget*>::iterator iter = targets.begin();
       iter != targets.end(); ++iter)
     {
-    cmTarget* t = &iter->second;
-    t->HasMacOSXRpathInstallNameDir("");
+    (*iter)->HasMacOSXRpathInstallNameDir("");
     }
 }
 
@@ -65,12 +64,11 @@ void cmLocalXCodeGenerator::GenerateInstallRules()
 {
   cmLocalGenerator::GenerateInstallRules();
 
-  cmTargets& targets = this->Makefile->GetTargets();
-  for(cmTargets::iterator iter = targets.begin();
+  std::vector<cmGeneratorTarget*> targets = this->GetGeneratorTargets();
+  for(std::vector<cmGeneratorTarget*>::iterator iter = targets.begin();
       iter != targets.end(); ++iter)
     {
-    cmTarget* t = &iter->second;
-    t->HasMacOSXRpathInstallNameDir("");
+    (*iter)->HasMacOSXRpathInstallNameDir("");
     }
 }
 

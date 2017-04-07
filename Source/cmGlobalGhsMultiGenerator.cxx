@@ -287,8 +287,8 @@ void cmGlobalGhsMultiGenerator::Generate()
       {
       cmLocalGhsMultiGenerator *lg =
         static_cast<cmLocalGhsMultiGenerator *>(this->LocalGenerators[i]);
-      cmGeneratorTargetsType tgts = lg->GetMakefile()->GetGeneratorTargets();
-      this->UpdateBuildFiles(&tgts);
+      std::vector<cmGeneratorTarget*> tgts = lg->GetGeneratorTargets();
+      this->UpdateBuildFiles(tgts);
       }
     }
 
@@ -481,15 +481,15 @@ cmGlobalGhsMultiGenerator::GetFileNameFromPath(std::string const &path)
 }
 
 void cmGlobalGhsMultiGenerator::UpdateBuildFiles(
-  cmGeneratorTargetsType *tgts)
+  std::vector<cmGeneratorTarget*> tgts)
 {
-  for (cmGeneratorTargetsType::iterator tgtsI = tgts->begin();
-       tgtsI != tgts->end(); ++tgtsI)
+  for (std::vector<cmGeneratorTarget*>::iterator tgtsI = tgts.begin();
+       tgtsI != tgts.end(); ++tgtsI)
     {
-    const cmTarget *tgt(tgtsI->first);
+    const cmGeneratorTarget *tgt = *tgtsI;
     if (IsTgtForBuild(tgt))
       {
-      char const *rawFolderName = tgtsI->first->GetProperty("FOLDER");
+      char const *rawFolderName = tgt->GetProperty("FOLDER");
       if (NULL == rawFolderName)
         {
         rawFolderName = "";
@@ -509,16 +509,17 @@ void cmGlobalGhsMultiGenerator::UpdateBuildFiles(
                                        splitPath.back());
       *this->TargetFolderBuildStreams[folderName] << foldNameRelBuildFile
                                                   << " ";
-      GhsMultiGpj::WriteGpjTag(cmGhsMultiTargetGenerator::GetGpjTag(tgt),
+      GhsMultiGpj::WriteGpjTag(cmGhsMultiTargetGenerator::GetGpjTag(
+                                 tgt),
                                this->TargetFolderBuildStreams[folderName]);
       }
     }
 }
 
-bool cmGlobalGhsMultiGenerator::IsTgtForBuild(const cmTarget *tgt)
+bool cmGlobalGhsMultiGenerator::IsTgtForBuild(const cmGeneratorTarget *tgt)
 {
   const std::string config =
-    tgt->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE");
+    tgt->Target->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE");
   std::vector<cmSourceFile *> tgtSources;
   tgt->GetSourceFiles(tgtSources, config);
   bool tgtInBuild = true;

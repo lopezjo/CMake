@@ -11,10 +11,9 @@
 ============================================================================*/
 #include "cmGeneratorExpression.h"
 
-#include "cmMakefile.h"
-#include "cmTarget.h"
 #include "assert.h"
 #include "cmAlgorithms.h"
+#include "cmSystemTools.h"
 
 #include "cmGeneratorExpressionEvaluator.h"
 #include "cmGeneratorExpressionLexer.h"
@@ -48,13 +47,13 @@ cmGeneratorExpression::~cmGeneratorExpression()
 }
 
 //----------------------------------------------------------------------------
-const char *cmCompiledGeneratorExpression::Evaluate(
-  cmMakefile* mf, const std::string& config, bool quiet,
-  cmTarget const* headTarget,
+const char *cmCompiledGeneratorExpression::Evaluate(cmLocalGenerator* lg,
+  const std::string& config, bool quiet,
+  const cmGeneratorTarget* headTarget,
   cmGeneratorExpressionDAGChecker *dagChecker,
                        std::string const& language) const
 {
-  return this->Evaluate(mf,
+  return this->Evaluate(lg,
                         config,
                         quiet,
                         headTarget,
@@ -65,13 +64,13 @@ const char *cmCompiledGeneratorExpression::Evaluate(
 
 //----------------------------------------------------------------------------
 const char *cmCompiledGeneratorExpression::Evaluate(
-  cmMakefile* mf, const std::string& config, bool quiet,
-  cmTarget const* headTarget,
-  cmTarget const* currentTarget,
+  cmLocalGenerator* lg, const std::string& config, bool quiet,
+  const cmGeneratorTarget* headTarget,
+  const cmGeneratorTarget* currentTarget,
   cmGeneratorExpressionDAGChecker *dagChecker,
   std::string const& language) const
 {
-  cmGeneratorExpressionContext context(mf, config, quiet, headTarget,
+  cmGeneratorExpressionContext context(lg, config, quiet, headTarget,
                                   currentTarget ? currentTarget : headTarget,
                                   this->EvaluateForBuildsystem,
                                   this->Backtrace, language);
@@ -463,10 +462,11 @@ bool cmGeneratorExpression::IsValidTargetName(const std::string &input)
 
 //----------------------------------------------------------------------------
 void
-cmCompiledGeneratorExpression::GetMaxLanguageStandard(cmTarget const* tgt,
+cmCompiledGeneratorExpression::GetMaxLanguageStandard(
+    const cmGeneratorTarget* tgt,
                   std::map<std::string, std::string>& mapping)
 {
-  typedef std::map<cmTarget const*,
+  typedef std::map<cmGeneratorTarget const*,
                    std::map<std::string, std::string> > MapType;
   MapType::const_iterator it = this->MaxLanguageStandard.find(tgt);
   if (it != this->MaxLanguageStandard.end())

@@ -15,7 +15,6 @@
 #include "cmHexFileConverter.h"
 #include "cmInstallType.h"
 #include "cmFileTimeComparison.h"
-#include "cmLocalGenerator.h"
 #include "cmGlobalGenerator.h"
 #include "cmCryptoHash.h"
 #include "cmAlgorithms.h"
@@ -2812,8 +2811,8 @@ namespace {
       case CURLINFO_SSL_DATA_OUT:
         {
         char buf[128];
-        int n = sprintf(buf, "[%" cmIML_INT_PRIu64 " bytes data]\n",
-                        static_cast<cmIML_INT_uint64_t>(size));
+        int n = sprintf(buf, "[%" KWIML_INT_PRIu64 " bytes data]\n",
+                        static_cast<KWIML_INT_uint64_t>(size));
         if (n > 0)
           {
           vec->insert(vec->end(), buf, buf + n);

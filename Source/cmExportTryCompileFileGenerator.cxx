@@ -14,22 +14,25 @@
 
 #include "cmGeneratedFileStream.h"
 #include "cmGlobalGenerator.h"
+#include "cmLocalGenerator.h"
 #include "cmGeneratorExpressionDAGChecker.h"
 
 //----------------------------------------------------------------------------
 cmExportTryCompileFileGenerator::cmExportTryCompileFileGenerator(
-    cmGlobalGenerator* gg)
+    cmGlobalGenerator* gg,
+    const std::vector<std::string>& targets,
+    cmMakefile* mf)
 {
-  gg->CreateGenerationObjects(cmGlobalGenerator::ImportedOnly);
+  gg->CreateImportedGenerationObjects(mf, targets, this->Exports);
 }
 
 bool cmExportTryCompileFileGenerator::GenerateMainFile(std::ostream& os)
 {
-  std::set<cmTarget const*> emitted;
-  std::set<cmTarget const*> emittedDeps;
+  std::set<cmGeneratorTarget const*> emitted;
+  std::set<cmGeneratorTarget const*> emittedDeps;
   while(!this->Exports.empty())
     {
-    cmTarget const* te = this->Exports.back();
+    cmGeneratorTarget const* te = this->Exports.back();
     this->Exports.pop_back();
     if (emitted.insert(te).second)
       {
@@ -54,9 +57,9 @@ bool cmExportTryCompileFileGenerator::GenerateMainFile(std::ostream& os)
 }
 
 std::string cmExportTryCompileFileGenerator::FindTargets(
-                                          const std::string& propName,
-                                          cmTarget const* tgt,
-                                          std::set<cmTarget const*> &emitted)
+                                  const std::string& propName,
+                                  cmGeneratorTarget const* tgt,
+                                  std::set<cmGeneratorTarget const*> &emitted)
 {
   const char *prop = tgt->GetProperty(propName);
   if(!prop)
@@ -73,15 +76,19 @@ std::string cmExportTryCompileFileGenerator::FindTargets(
   cmsys::auto_ptr<cmCompiledGeneratorExpression> cge = ge.Parse(prop);
 
   cmTarget dummyHead;
-  dummyHead.SetType(cmTarget::EXECUTABLE, "try_compile_dummy_exe");
-  dummyHead.SetMakefile(tgt->GetMakefile());
+  dummyHead.SetType(cmState::EXECUTABLE, "try_compile_dummy_exe");
+  dummyHead.SetMakefile(tgt->Target->GetMakefile());
 
-  std::string result = cge->Evaluate(tgt->GetMakefile(), this->Config,
-                                     false, &dummyHead, tgt, &dagChecker);
+  cmGeneratorTarget gDummyHead(&dummyHead, tgt->GetLocalGenerator());
 
-  const std::set<cmTarget const*> &allTargets = cge->GetAllTargetsSeen();
-  for(std::set<cmTarget const*>::const_iterator li = allTargets.begin();
-      li != allTargets.end(); ++li)
+  std::string result = cge->Evaluate(tgt->GetLocalGenerator(), this->Config,
+                                     false, &gDummyHead,
+                                     tgt, &dagChecker);
+
+  const std::set<cmGeneratorTarget const*> &allTargets =
+      cge->GetAllTargetsSeen();
+  for(std::set<cmGeneratorTarget const*>::const_iterator li =
+      allTargets.begin(); li != allTargets.end(); ++li)
     {
     if(emitted.insert(*li).second)
       {
@@ -93,20 +100,23 @@ std::string cmExportTryCompileFileGenerator::FindTargets(
 
 //----------------------------------------------------------------------------
 void
-cmExportTryCompileFileGenerator::PopulateProperties(cmTarget const* target,
-                                                ImportPropertyMap& properties,
-                                          std::set<cmTarget const*> &emitted)
+cmExportTryCompileFileGenerator::PopulateProperties(
+                                 const cmGeneratorTarget* target,
+                                 ImportPropertyMap& properties,
+                                 std::set<cmGeneratorTarget const*> &emitted)
 {
-  cmPropertyMap props = target->GetProperties();
-  for(cmPropertyMap::const_iterator i = props.begin(); i != props.end(); ++i)
+  std::vector<std::string> props = target->GetPropertyKeys();
+  for(std::vector<std::string>::const_iterator i = props.begin();
+      i != props.end(); ++i)
     {
-    properties[i->first] = i->second.GetValue();
 
-    if(i->first.find("IMPORTED_LINK_INTERFACE_LIBRARIES") == 0
-        || i->first.find("IMPORTED_LINK_DEPENDENT_LIBRARIES") == 0
-        || i->first.find("INTERFACE_LINK_LIBRARIES") == 0)
+    properties[*i] = target->GetProperty(*i);
+
+    if(i->find("IMPORTED_LINK_INTERFACE_LIBRARIES") == 0
+        || i->find("IMPORTED_LINK_DEPENDENT_LIBRARIES") == 0
+        || i->find("INTERFACE_LINK_LIBRARIES") == 0)
       {
-      std::string evalResult = this->FindTargets(i->first,
+      std::string evalResult = this->FindTargets(*i,
                                                  target, emitted);
 
       std::vector<std::string> depends;
@@ -114,7 +124,8 @@ cmExportTryCompileFileGenerator::PopulateProperties(cmTarget const* target,
       for(std::vector<std::string>::const_iterator li = depends.begin();
           li != depends.end(); ++li)
         {
-        cmTarget *tgt = target->GetMakefile()->FindTargetToUse(*li);
+        cmGeneratorTarget *tgt =
+            target->GetLocalGenerator()->FindGeneratorTargetToUse(*li);
         if(tgt && emitted.insert(tgt).second)
           {
           this->Exports.push_back(tgt);

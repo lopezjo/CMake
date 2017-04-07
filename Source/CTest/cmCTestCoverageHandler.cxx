@@ -820,11 +820,26 @@ int cmCTestCoverageHandler::HandleCoberturaCoverage(
 {
   cmParseCoberturaCoverage cov(*cont, this->CTest);
 
-  // Assume the coverage.xml is in the source directory
-  std::string coverageXMLFile = this->CTest->GetBinaryDir() + "/coverage.xml";
+  // Assume the coverage.xml is in the binary directory
+  // check for the COBERTURADIR environment variable,
+  // if it doesn't exist or is empty, assume the
+  // binary directory is used.
+  std::string coverageXMLFile;
+  const char* covDir = cmSystemTools::GetEnv("COBERTURADIR");
+  if(covDir && strlen(covDir) != 0)
+    {
+      coverageXMLFile = std::string(covDir);
+    }
+  else
+    {
+      coverageXMLFile = this->CTest->GetBinaryDir();
+    }
+  // build the find file string with the directory from above
+  coverageXMLFile += "/coverage.xml";
 
   if(cmSystemTools::FileExists(coverageXMLFile.c_str()))
     {
+    // If file exists, parse it
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT,
                "Parsing Cobertura XML file: " << coverageXMLFile
                << std::endl, this->Quiet);
@@ -833,7 +848,7 @@ int cmCTestCoverageHandler::HandleCoberturaCoverage(
   else
     {
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT,
-               "Cannot find Cobertura XML file: " << coverageXMLFile
+               " Cannot find Cobertura XML file: " << coverageXMLFile
                << std::endl, this->Quiet);
     }
   return static_cast<int>(cont->TotalCoverage.size());
@@ -913,16 +928,33 @@ int cmCTestCoverageHandler::HandleJacocoCoverage(
 {
   cmParseJacocoCoverage cov =
    cmParseJacocoCoverage(*cont, this->CTest);
-  cmsys::Glob g;
+
+  // Search in the source directory.
+  cmsys::Glob g1;
   std::vector<std::string> files;
-  g.SetRecurse(true);
+  g1.SetRecurse(true);
 
   std::string SourceDir
     = this->CTest->GetCTestConfiguration("SourceDirectory");
   std::string coverageFile = SourceDir+ "/*jacoco.xml";
 
-  g.FindFiles(coverageFile);
-  files=g.GetFiles();
+  g1.FindFiles(coverageFile);
+  files = g1.GetFiles();
+
+  // ...and in the binary directory.
+  cmsys::Glob g2;
+  std::vector<std::string> binFiles;
+  g2.SetRecurse(true);
+  std::string binaryDir
+    = this->CTest->GetCTestConfiguration("BuildDirectory");
+  std::string binCoverageFile = binaryDir+ "/*jacoco.xml";
+  g2.FindFiles(binCoverageFile);
+  binFiles = g2.GetFiles();
+  if (!binFiles.empty())
+    {
+    files.insert(files.end(), binFiles.begin(), binFiles.end());
+    }
+
   if (!files.empty())
     {
     cmCTestOptionalLog(this->CTest, HANDLER_VERBOSE_OUTPUT,
@@ -2287,7 +2319,7 @@ int cmCTestCoverageHandler::RunBullseyeSourceSummary(
         {
         cper /= 2.0f;
         }
-      percent_coverage += cper;
+      percent_coverage += static_cast<double>(cper);
       float cmet = static_cast<float>(percentFunction + percentBranch);
       if(totalBranches > 0)
         {

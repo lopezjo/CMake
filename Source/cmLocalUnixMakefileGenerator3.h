@@ -19,10 +19,8 @@
 
 class cmCustomCommand;
 class cmCustomCommandGenerator;
-class cmDependInformation;
 class cmDepends;
 class cmMakefileTargetGenerator;
-class cmTarget;
 class cmSourceFile;
 
 /** \class cmLocalUnixMakefileGenerator3
@@ -106,7 +104,8 @@ public:
   /** Get whether the makefile is to have color.  */
   bool GetColorMakefile() const { return this->ColorMakefile; }
 
-  virtual std::string GetTargetDirectory(cmTarget const& target) const;
+  virtual
+  std::string GetTargetDirectory(cmGeneratorTarget const* target) const;
 
     // create a command that cds to the start dir then runs the commands
   void CreateCDCommand(std::vector<std::string>& commands,
@@ -131,7 +130,7 @@ public:
   void WriteSpecialTargetsTop(std::ostream& makefileStream);
   void WriteSpecialTargetsBottom(std::ostream& makefileStream);
 
-  std::string GetRelativeTargetDirectory(cmTarget const& target);
+  std::string GetRelativeTargetDirectory(cmGeneratorTarget* target);
 
   // File pairs for implicit dependency scanning.  The key of the map
   // is the depender and the value is the explicit dependee.
@@ -141,9 +140,11 @@ public:
     public std::map<std::string, ImplicitDependFileMap> {};
   struct ImplicitDependTargetMap:
     public std::map<std::string, ImplicitDependLanguageMap> {};
-  ImplicitDependLanguageMap const& GetImplicitDepends(cmTarget const& tgt);
+  ImplicitDependLanguageMap const&
+  GetImplicitDepends(cmGeneratorTarget const* tgt);
 
-  void AddImplicitDepends(cmTarget const& tgt, const std::string& lang,
+  void AddImplicitDepends(cmGeneratorTarget const* tgt,
+                          const std::string& lang,
                           const char* obj, const char* src);
 
   // write the target rules for the local Makefile into the stream
@@ -181,7 +182,8 @@ protected:
 
 
   // write the depend info
-  void WriteDependLanguageInfo(std::ostream& cmakefileStream, cmTarget &tgt);
+  void WriteDependLanguageInfo(std::ostream& cmakefileStream,
+                               cmGeneratorTarget *tgt);
 
   // write the local help rule
   void WriteHelpRule(std::ostream& ruleFileStream);
@@ -196,12 +198,12 @@ protected:
                             const std::string& helpTarget);
 
   void WriteTargetDependRule(std::ostream& ruleFileStream,
-                             cmTarget& target);
+                             cmGeneratorTarget* target);
   void WriteTargetCleanRule(std::ostream& ruleFileStream,
-                            cmTarget& target,
+                            cmGeneratorTarget* target,
                             const std::vector<std::string>& files);
   void WriteTargetRequiresRule(std::ostream& ruleFileStream,
-                               cmTarget& target,
+                               cmGeneratorTarget* target,
                                const std::vector<std::string>& objects);
 
   void AppendRuleDepend(std::vector<std::string>& depends,
@@ -214,19 +216,19 @@ protected:
                           cmCustomCommandGenerator const& cc);
   void AppendCustomCommands(std::vector<std::string>& commands,
                             const std::vector<cmCustomCommand>& ccs,
-                            cmTarget* target,
+                            cmGeneratorTarget* target,
                             cmLocalGenerator::RelativeRoot relative =
                             cmLocalGenerator::HOME_OUTPUT);
   void AppendCustomCommand(std::vector<std::string>& commands,
                            cmCustomCommandGenerator const& ccg,
-                           cmTarget* target,
+                           cmGeneratorTarget* target,
                            bool echo_comment=false,
                            cmLocalGenerator::RelativeRoot relative =
                            cmLocalGenerator::HOME_OUTPUT,
                            std::ostream* content = 0);
   void AppendCleanCommand(std::vector<std::string>& commands,
                           const std::vector<std::string>& files,
-                          cmTarget& target, const char* filename =0);
+                          cmGeneratorTarget* target, const char* filename =0);
 
   // Helper methods for dependeny updates.
   bool ScanDependencies(const char* targetDir,
@@ -236,7 +238,7 @@ protected:
 private:
   std::string ConvertShellCommand(std::string const& cmd, RelativeRoot root);
   std::string MakeLauncher(cmCustomCommandGenerator const& ccg,
-                           cmTarget* target, RelativeRoot relative);
+                           cmGeneratorTarget* target, RelativeRoot relative);
 
   virtual void ComputeObjectFilenames(
                         std::map<cmSourceFile const*, std::string>& mapping,
@@ -254,10 +256,10 @@ private:
 
   struct LocalObjectEntry
   {
-    cmTarget* Target;
+    cmGeneratorTarget* Target;
     std::string Language;
     LocalObjectEntry(): Target(0), Language() {}
-    LocalObjectEntry(cmTarget* t, const std::string& lang):
+    LocalObjectEntry(cmGeneratorTarget* t, const std::string& lang):
       Target(t), Language(lang) {}
   };
   struct LocalObjectInfo: public std::vector<LocalObjectEntry>

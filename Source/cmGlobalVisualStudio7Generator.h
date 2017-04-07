@@ -53,6 +53,12 @@ public:
   static void GetDocumentation(cmDocumentationEntry& entry);
 
   /**
+   * Utilized by the generator factory to determine if this generator
+   * supports toolsets.
+   */
+  static bool SupportsToolset() { return false; }
+
+  /**
    * Try to determine system information such as shared library
    * extension, pthreads, byte order etc.
    */
@@ -94,7 +100,8 @@ public:
 
   /** Return true if the target project file should have the option
       LinkLibraryDependencies and link to .sln dependencies. */
-  virtual bool NeedLinkLibraryDependencies(cmTarget&) { return false; }
+  virtual bool NeedLinkLibraryDependencies(cmGeneratorTarget*)
+  { return false; }
 
   const char* GetIntelProjectVersion();
 
@@ -123,12 +130,12 @@ protected:
                             std::vector<cmLocalGenerator*>& generators);
   virtual void WriteProject(std::ostream& fout,
                             const std::string& name, const char* path,
-                            cmTarget const& t);
+                            const cmGeneratorTarget *t);
   virtual void WriteProjectDepends(std::ostream& fout,
                            const std::string& name, const char* path,
-                           cmTarget const&t);
+                           cmGeneratorTarget const* t);
   virtual void WriteProjectConfigurations(
-    std::ostream& fout, const std::string& name, cmTarget::TargetType type,
+    std::ostream& fout, const std::string& name, cmState::TargetType type,
     std::vector<std::string> const& configs,
     const std::set<std::string>& configsPartOfDefaultBuild,
     const std::string& platformMapping = "");
@@ -136,7 +143,7 @@ protected:
                                       cmLocalGenerator* root);
   virtual void WriteSLNFooter(std::ostream& fout);
   virtual void WriteSLNHeader(std::ostream& fout);
-  virtual std::string WriteUtilityDepend(cmTarget const* target);
+  virtual std::string WriteUtilityDepend(const cmGeneratorTarget *target);
 
   virtual void WriteTargetsToSolution(
     std::ostream& fout,
@@ -162,9 +169,9 @@ protected:
   std::set<std::string>
     IsPartOfDefaultBuild(std::vector<std::string> const& configs,
                          OrderedTargetDependSet const& projectTargets,
-                         cmTarget const* target);
+                         cmGeneratorTarget const* target);
   bool IsDependedOn(OrderedTargetDependSet const& projectTargets,
-                    cmTarget const* target);
+                    cmGeneratorTarget const* target);
   std::map<std::string, std::string> GUIDMap;
 
   virtual void WriteFolders(std::ostream& fout);

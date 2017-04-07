@@ -17,7 +17,7 @@
 
 class cmLocalGenerator;
 class cmMakefile;
-class cmTarget;
+class cmGeneratorTarget;
 class cmGeneratedFileStream;
 
 /** \class cmExtraCodeBlocksGenerator
@@ -41,7 +41,7 @@ public:
 private:
   struct CbpUnit
   {
-    std::vector<const cmTarget*> Targets;
+    std::vector<const cmGeneratorTarget*> Targets;
   };
 
   void CreateProjectFile(const std::vector<cmLocalGenerator*>& lgs);
@@ -49,15 +49,15 @@ private:
   void CreateNewProjectFile(const std::vector<cmLocalGenerator*>& lgs,
                                 const std::string& filename);
   std::string CreateDummyTargetFile(cmLocalGenerator* lg,
-                                    cmTarget* target) const;
+                                    cmGeneratorTarget* target) const;
 
   std::string GetCBCompilerId(const cmMakefile* mf);
-  int GetCBTargetType(cmTarget* target);
+  int GetCBTargetType(cmGeneratorTarget* target);
   std::string BuildMakeCommand(const std::string& make, const char* makefile,
                                const std::string& target);
   void AppendTarget(cmGeneratedFileStream& fout,
                     const std::string& targetName,
-                    cmTarget* target,
+                    cmGeneratorTarget* target,
                     const char* make,
                     const cmLocalGenerator* lg,
                     const char* compiler);

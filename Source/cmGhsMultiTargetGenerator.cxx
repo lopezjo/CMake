@@ -22,23 +22,22 @@
 std::string const cmGhsMultiTargetGenerator::DDOption("-dynamic");
 
 cmGhsMultiTargetGenerator::cmGhsMultiTargetGenerator(cmGeneratorTarget *target)
-  : Target(target->Target)
-  , GeneratorTarget(target)
+  : GeneratorTarget(target)
   , LocalGenerator(static_cast<cmLocalGhsMultiGenerator *>(
                      target->GetLocalGenerator()))
   , Makefile(target->Target->GetMakefile())
-  , TargetGroup(DetermineIfTargetGroup(target->Target))
+  , TargetGroup(DetermineIfTargetGroup(target))
   , DynamicDownload(false)
 {
-  this->RelBuildFilePath = this->GetRelBuildFilePath(target->Target);
+  this->RelBuildFilePath = this->GetRelBuildFilePath(target);
 
   this->RelOutputFileName =
-    this->RelBuildFilePath + this->Target->GetName() + ".a";
+    this->RelBuildFilePath + target->GetName() + ".a";
 
   this->RelBuildFileName = this->RelBuildFilePath;
-  this->RelBuildFileName += this->GetBuildFileName(target->Target);
+  this->RelBuildFileName += this->GetBuildFileName(target);
 
-  std::string absPathToRoot = this->GetAbsPathToRoot(target->Target);
+  std::string absPathToRoot = this->GetAbsPathToRoot(target);
   absPathToRoot = this->AddSlashIfNeededToPath(absPathToRoot);
   this->AbsBuildFilePath = absPathToRoot + this->RelBuildFilePath;
   this->AbsBuildFileName = absPathToRoot + this->RelBuildFileName;
@@ -51,7 +50,8 @@ cmGhsMultiTargetGenerator::~cmGhsMultiTargetGenerator()
 }
 
 std::string
-cmGhsMultiTargetGenerator::GetRelBuildFilePath(const cmTarget *target)
+cmGhsMultiTargetGenerator::GetRelBuildFilePath(
+        const cmGeneratorTarget *target)
 {
   std::string output;
   char const *folderProp = target->GetProperty("FOLDER");
@@ -66,13 +66,13 @@ cmGhsMultiTargetGenerator::GetRelBuildFilePath(const cmTarget *target)
 }
 
 std::string
-cmGhsMultiTargetGenerator::GetAbsPathToRoot(const cmTarget *target)
+cmGhsMultiTargetGenerator::GetAbsPathToRoot(const cmGeneratorTarget *target)
 {
-  return target->GetMakefile()->GetHomeOutputDirectory();
+  return target->GetLocalGenerator()->GetBinaryDirectory();
 }
 
 std::string
-cmGhsMultiTargetGenerator::GetAbsBuildFilePath(const cmTarget *target)
+cmGhsMultiTargetGenerator::GetAbsBuildFilePath(const cmGeneratorTarget *target)
 {
   std::string output;
   output = cmGhsMultiTargetGenerator::GetAbsPathToRoot(target);
@@ -82,7 +82,7 @@ cmGhsMultiTargetGenerator::GetAbsBuildFilePath(const cmTarget *target)
 }
 
 std::string
-cmGhsMultiTargetGenerator::GetRelBuildFileName(const cmTarget *target)
+cmGhsMultiTargetGenerator::GetRelBuildFileName(const cmGeneratorTarget *target)
 {
   std::string output;
   output = cmGhsMultiTargetGenerator::GetRelBuildFilePath(target);
@@ -91,7 +91,8 @@ cmGhsMultiTargetGenerator::GetRelBuildFileName(const cmTarget *target)
   return  output;
 }
 
-std::string cmGhsMultiTargetGenerator::GetBuildFileName(const cmTarget *target)
+std::string
+cmGhsMultiTargetGenerator::GetBuildFileName(const cmGeneratorTarget *target)
 {
   std::string output;
   output = target->GetName();
@@ -146,7 +147,7 @@ void cmGhsMultiTargetGenerator::Generate()
     this->WriteCompilerFlags(config, language);
     this->WriteCompilerDefinitions(config, language);
     this->WriteIncludes(config, language);
-    if (this->Target->GetType() == cmTarget::EXECUTABLE)
+    if (this->GeneratorTarget->GetType() == cmState::EXECUTABLE)
       {
       this->WriteTargetLinkLibraries();
       }
@@ -159,7 +160,8 @@ void cmGhsMultiTargetGenerator::Generate()
 bool cmGhsMultiTargetGenerator::IncludeThisTarget()
 {
   bool output = true;
-  char const *excludeFromAll = this->Target->GetProperty("EXCLUDE_FROM_ALL");
+  char const *excludeFromAll =
+      this->GeneratorTarget->GetProperty("EXCLUDE_FROM_ALL");
   if (NULL != excludeFromAll && '1' == excludeFromAll[0] &&
       '\0' == excludeFromAll[1])
     {
@@ -172,23 +174,24 @@ std::vector<cmSourceFile *> cmGhsMultiTargetGenerator::GetSources() const
 {
   std::vector<cmSourceFile *> output;
   std::string config = this->Makefile->GetSafeDefinition("CMAKE_BUILD_TYPE");
-  this->Target->GetSourceFiles(output, config);
+  this->GeneratorTarget->GetSourceFiles(output, config);
   return output;
 }
 
 GhsMultiGpj::Types cmGhsMultiTargetGenerator::GetGpjTag() const
 {
-  return cmGhsMultiTargetGenerator::GetGpjTag(this->Target);
+  return cmGhsMultiTargetGenerator::GetGpjTag(this->GeneratorTarget);
 }
 
-GhsMultiGpj::Types cmGhsMultiTargetGenerator::GetGpjTag(const cmTarget *target)
+GhsMultiGpj::Types cmGhsMultiTargetGenerator::GetGpjTag(
+    const cmGeneratorTarget *target)
 {
   GhsMultiGpj::Types output;
   if (cmGhsMultiTargetGenerator::DetermineIfTargetGroup(target))
     {
     output = GhsMultiGpj::INTERGRITY_APPLICATION;
     }
-  else if (target->GetType() == cmTarget::STATIC_LIBRARY)
+  else if (target->GetType() == cmState::STATIC_LIBRARY)
     {
     output = GhsMultiGpj::LIBRARY;
     }
@@ -212,13 +215,13 @@ void cmGhsMultiTargetGenerator::WriteTypeSpecifics(const std::string &config,
   std::string outputDir(this->GetOutputDirectory(config));
   std::string outputFilename(this->GetOutputFilename(config));
 
-  if (this->Target->GetType() == cmTarget::STATIC_LIBRARY)
+  if (this->GeneratorTarget->GetType() == cmState::STATIC_LIBRARY)
     {
-    *this->GetFolderBuildStreams() << "    {optgroup=GhsCommonOptions} -o \""
+    *this->GetFolderBuildStreams() << "    -o \""
                                    << outputDir << outputFilename << ".a\""
                                    << std::endl;
     }
-  else if (this->Target->GetType() == cmTarget::EXECUTABLE)
+  else if (this->GeneratorTarget->GetType() == cmState::EXECUTABLE)
     {
     if (notKernel && !this->IsTargetGroup())
       {
@@ -227,7 +230,7 @@ void cmGhsMultiTargetGenerator::WriteTypeSpecifics(const std::string &config,
     if (this->IsTargetGroup())
       {
       *this->GetFolderBuildStreams()
-          << "    {optgroup=GhsCommonOptions} -o \"" << outputDir
+          << "    -o \"" << outputDir
           << outputFilename << ".elf\"" << std::endl;
       *this->GetFolderBuildStreams() << "    :extraOutputFile=\"" << outputDir
                                      << outputFilename << ".elf.ael\""
@@ -235,7 +238,7 @@ void cmGhsMultiTargetGenerator::WriteTypeSpecifics(const std::string &config,
       }
     else
       {
-      *this->GetFolderBuildStreams() << "    {optgroup=GhsCommonOptions} -o \""
+      *this->GetFolderBuildStreams() << "    -o \""
                                      << outputDir << outputFilename << ".as\""
                                      << std::endl;
       }
@@ -262,8 +265,11 @@ void cmGhsMultiTargetGenerator::SetCompilerFlags(std::string const &config,
         this->LocalGenerator->AddLanguageFlags(
             flags, lang + std::string("_GHS_KERNEL"), config);
       }
-    this->LocalGenerator->AddCMP0018Flags(flags, this->Target, lang, config);
-    this->LocalGenerator->AddVisibilityPresetFlags(flags, this->Target, lang);
+    this->LocalGenerator->AddCMP0018Flags(flags, this->GeneratorTarget,
+                                          lang, config);
+    this->LocalGenerator->AddVisibilityPresetFlags(flags,
+                                                   this->GeneratorTarget,
+                                                   lang);
 
     // Append old-style preprocessor definition flags.
     if (std::string(" ") != std::string(this->Makefile->GetDefineFlags()))
@@ -273,7 +279,8 @@ void cmGhsMultiTargetGenerator::SetCompilerFlags(std::string const &config,
       }
 
     // Add target-specific flags.
-    this->LocalGenerator->AddCompileOptions(flags, this->Target, lang, config);
+    this->LocalGenerator->AddCompileOptions(flags, this->GeneratorTarget,
+                                            lang, config);
 
     std::map<std::string, std::string>::value_type entry(language, flags);
     i = this->FlagsByLanguage.insert(entry).first;
@@ -290,13 +297,14 @@ std::string cmGhsMultiTargetGenerator::GetDefines(const std::string &language,
     std::set<std::string> defines;
     const char *lang = language.c_str();
     // Add the export symbol definition for shared library objects.
-    if (const char *exportMacro = this->Target->GetExportMacro())
+    if (const char *exportMacro = this->GeneratorTarget->GetExportMacro())
       {
       this->LocalGenerator->AppendDefines(defines, exportMacro);
       }
 
     // Add preprocessor definitions for this target and configuration.
-    this->LocalGenerator->AddCompileDefinitions(defines, this->Target, config,
+    this->LocalGenerator->AddCompileDefinitions(defines,
+                                                this->GeneratorTarget, config,
                                                 language);
 
     std::string definesString;
@@ -359,13 +367,13 @@ void cmGhsMultiTargetGenerator::WriteTargetLinkLibraries()
   for (cmTargetDependSet::iterator tdsI = tds.begin(); tdsI != tds.end();
        ++tdsI)
     {
-    const cmTarget *tg = (*tdsI)->Target;
+    const cmGeneratorTarget *tg = *tdsI;
     *this->GetFolderBuildStreams() << "    -L\"" << GetAbsBuildFilePath(tg)
                                    << "\"" << std::endl;
     }
   // library targets
   cmTarget::LinkLibraryVectorType llv =
-    this->Target->GetOriginalLinkLibraries();
+    this->GeneratorTarget->Target->GetOriginalLinkLibraries();
   for (cmTarget::LinkLibraryVectorType::const_iterator llvI = llv.begin();
        llvI != llv.end(); ++llvI)
     {
@@ -383,10 +391,12 @@ void cmGhsMultiTargetGenerator::WriteTargetLinkLibraries()
 
 void cmGhsMultiTargetGenerator::WriteCustomCommands()
 {
-  WriteCustomCommandsHelper(this->Target->GetPreBuildCommands(),
-                            cmTarget::PRE_BUILD);
-  WriteCustomCommandsHelper(this->Target->GetPostBuildCommands(),
-                            cmTarget::POST_BUILD);
+  WriteCustomCommandsHelper(
+        this->GeneratorTarget->GetPreBuildCommands(),
+        cmTarget::PRE_BUILD);
+  WriteCustomCommandsHelper(
+        this->GeneratorTarget->GetPostBuildCommands(),
+        cmTarget::POST_BUILD);
 }
 
 void cmGhsMultiTargetGenerator::WriteCustomCommandsHelper(
@@ -449,7 +459,7 @@ void cmGhsMultiTargetGenerator::WriteSources(
     cmSystemTools::ConvertToUnixSlashes(sgPath);
     cmGlobalGhsMultiGenerator::AddFilesUpToPath(
       this->GetFolderBuildStreams(), &this->FolderBuildStreams,
-      this->Makefile->GetHomeOutputDirectory(), sgPath,
+      this->LocalGenerator->GetBinaryDirectory(), sgPath,
       GhsMultiGpj::SUBPROJECT, this->RelBuildFilePath);
 
     std::string fullSourcePath((*si)->GetFullPath());
@@ -510,7 +520,7 @@ cmGhsMultiTargetGenerator::GetOutputDirectory(const std::string &config) const
   std::string outputDir(AbsBuildFilePath);
 
   const char *runtimeOutputProp =
-    this->Target->GetProperty("RUNTIME_OUTPUT_DIRECTORY");
+    this->GeneratorTarget->GetProperty("RUNTIME_OUTPUT_DIRECTORY");
   if (NULL != runtimeOutputProp)
     {
     outputDir = runtimeOutputProp;
@@ -518,7 +528,8 @@ cmGhsMultiTargetGenerator::GetOutputDirectory(const std::string &config) const
 
   std::string configCapped(cmSystemTools::UpperCase(config));
   const char *runtimeOutputSProp =
-    this->Target->GetProperty("RUNTIME_OUTPUT_DIRECTORY_" + configCapped);
+    this->GeneratorTarget
+      ->GetProperty("RUNTIME_OUTPUT_DIRECTORY_" + configCapped);
   if (NULL != runtimeOutputSProp)
     {
     outputDir = runtimeOutputSProp;
@@ -536,9 +547,10 @@ cmGhsMultiTargetGenerator::GetOutputDirectory(const std::string &config) const
 std::string
 cmGhsMultiTargetGenerator::GetOutputFilename(const std::string &config) const
 {
-  std::string outputFilename(this->Target->GetName());
+  std::string outputFilename(this->GeneratorTarget->GetName());
 
-  const char *outputNameProp = this->Target->GetProperty("OUTPUT_NAME");
+  const char *outputNameProp =
+      this->GeneratorTarget->GetProperty("OUTPUT_NAME");
   if (NULL != outputNameProp)
     {
     outputFilename = outputNameProp;
@@ -546,7 +558,7 @@ cmGhsMultiTargetGenerator::GetOutputFilename(const std::string &config) const
 
   std::string configCapped(cmSystemTools::UpperCase(config));
   const char *outputNameSProp =
-    this->Target->GetProperty(configCapped + "_OUTPUT_NAME");
+    this->GeneratorTarget->GetProperty(configCapped + "_OUTPUT_NAME");
   if (NULL != outputNameSProp)
     {
     outputFilename = outputNameSProp;
@@ -566,12 +578,13 @@ bool cmGhsMultiTargetGenerator::IsNotKernel(std::string const &config,
   return output;
 }
 
-bool cmGhsMultiTargetGenerator::DetermineIfTargetGroup(const cmTarget *target)
+bool cmGhsMultiTargetGenerator::DetermineIfTargetGroup(
+    const cmGeneratorTarget *target)
 {
   bool output = false;
   std::vector<cmSourceFile *> sources;
   std::string config =
-      target->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE");
+      target->Target->GetMakefile()->GetSafeDefinition("CMAKE_BUILD_TYPE");
   target->GetSourceFiles(sources, config);
   for (std::vector<cmSourceFile *>::const_iterator sources_i = sources.begin();
        sources.end() != sources_i; ++sources_i)

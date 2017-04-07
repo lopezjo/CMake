@@ -43,10 +43,7 @@ public:
   /** Set whether to append generated code to the output file.  */
   void SetAppendMode(bool append) { this->AppendMode = append; }
 
-  void SetMakefile(cmMakefile *mf) {
-    this->Makefile = mf;
-    this->Backtrace = this->Makefile->GetBacktrace();
-  }
+  void Compute(cmLocalGenerator* lg);
 
 protected:
   // Implement virtual methods from the superclass.
@@ -57,12 +54,11 @@ protected:
                             std::vector<std::string> &missingTargets);
   virtual void HandleMissingTarget(std::string& link_libs,
                                    std::vector<std::string>& missingTargets,
-                                   cmMakefile* mf,
-                                   cmTarget* depender,
-                                   cmTarget* dependee);
+                                   cmGeneratorTarget* depender,
+                                   cmGeneratorTarget* dependee);
 
-  void ComplainAboutMissingTarget(cmTarget* depender,
-                                  cmTarget* dependee,
+  void ComplainAboutMissingTarget(cmGeneratorTarget* depender,
+                                  cmGeneratorTarget* dependee,
                                   int occurrences);
 
   /** Fill in properties indicating built file locations.  */
@@ -75,13 +71,12 @@ protected:
                              const std::string& config);
 
   std::vector<std::string>
-  FindNamespaces(cmMakefile* mf, const std::string& name);
+  FindNamespaces(cmGlobalGenerator* gg, const std::string& name);
 
   std::vector<std::string> Targets;
   cmExportSet *ExportSet;
   std::vector<cmGeneratorTarget*> Exports;
-  cmMakefile* Makefile;
-  cmListFileBacktrace Backtrace;
+  cmLocalGenerator* LG;
 };
 
 #endif

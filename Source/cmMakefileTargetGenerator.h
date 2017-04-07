@@ -18,14 +18,12 @@
 #include "cmOSXBundleGenerator.h"
 
 class cmCustomCommandGenerator;
-class cmDependInformation;
 class cmDepends;
 class cmGeneratorTarget;
 class cmGeneratedFileStream;
 class cmGlobalUnixMakefileGenerator3;
 class cmLocalUnixMakefileGenerator3;
 class cmMakefile;
-class cmTarget;
 class cmSourceFile;
 
 /** \class cmMakefileTargetGenerator
@@ -52,7 +50,6 @@ public:
   std::string GetProgressFileNameFull()
     { return this->ProgressFileNameFull; }
 
-  cmTarget* GetTarget() { return this->Target;}
   cmGeneratorTarget* GetGeneratorTarget() { return this->GeneratorTarget;}
 
 protected:

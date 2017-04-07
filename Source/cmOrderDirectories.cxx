@@ -553,7 +553,7 @@ void cmOrderDirectories::FindImplicitConflicts()
     << "Some of these libraries may not be found correctly.";
   this->GlobalGenerator->GetCMakeInstance()
     ->IssueMessage(cmake::WARNING, w.str(),
-                   this->Target->Target->GetBacktrace());
+                   this->Target->GetBacktrace());
 }
 
 //----------------------------------------------------------------------------
@@ -635,7 +635,7 @@ void cmOrderDirectories::DiagnoseCycle()
   e << "Some of these libraries may not be found correctly.";
   this->GlobalGenerator->GetCMakeInstance()
     ->IssueMessage(cmake::WARNING, e.str(),
-                   this->Target->Target->GetBacktrace());
+                   this->Target->GetBacktrace());
 }
 
 bool cmOrderDirectories::IsSameDirectory(std::string const& l,

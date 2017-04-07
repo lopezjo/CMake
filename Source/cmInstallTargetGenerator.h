@@ -14,7 +14,6 @@
 
 #include "cmInstallGenerator.h"
 
-class cmTarget;
 class cmGeneratorTarget;
 
 /** \class cmInstallTargetGenerator
@@ -54,7 +53,7 @@ public:
     NameReal
   };
 
-  static std::string GetInstallFilename(cmTarget const* target,
+  static std::string GetInstallFilename(const cmGeneratorTarget* target,
                                         const std::string& config,
                                         NameType nameType = NameNormal);
 
@@ -102,6 +101,8 @@ protected:
                     const std::string& toDestDirPath);
   void AddRanlibRule(std::ostream& os, Indent const& indent,
                      const std::string& toDestDirPath);
+  void AddUniversalInstallRule(std::ostream& os, Indent const& indent,
+                               const std::string& toDestDirPath);
 
   std::string TargetName;
   cmGeneratorTarget* Target;

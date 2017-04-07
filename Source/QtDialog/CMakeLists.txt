@@ -113,12 +113,18 @@ set(SRCS
   QCMakeCacheView.h
   QCMakeWidgets.cxx
   QCMakeWidgets.h
+  RegexExplorer.cxx
+  RegexExplorer.h
+  WarningMessagesDialog.cxx
+  WarningMessagesDialog.h
   )
 QT4_WRAP_UI(UI_SRCS
   CMakeSetupDialog.ui
   Compilers.ui
   CrossCompiler.ui
   AddCacheEntry.ui
+  RegexExplorer.ui
+  WarningMessagesDialog.ui
   )
 QT4_WRAP_CPP(MOC_SRCS
   AddCacheEntry.h
@@ -128,6 +134,8 @@ QT4_WRAP_CPP(MOC_SRCS
   QCMake.h
   QCMakeCacheView.h
   QCMakeWidgets.h
+  RegexExplorer.h
+  WarningMessagesDialog.h
   )
 QT4_ADD_RESOURCES(RC_SRCS CMakeSetup.qrc)
 
@@ -165,6 +173,7 @@ if(APPLE)
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${CMAKE_BUNDLE_VERSION}"
     # TBD: MACOSX_BUNDLE_BUNDLE_VERSION "${CMAKE_BUNDLE_VERSION}"
     MACOSX_BUNDLE_COPYRIGHT "${copyright_line}"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.cmake.cmake"
     )
 
   # Create a symlink in the build tree to provide a "cmake-gui" next
@@ -185,7 +194,7 @@ if(UNIX AND NOT APPLE)
   foreach (size IN ITEMS 32 128)
     install(
       FILES       "${CMAKE_CURRENT_SOURCE_DIR}/CMakeSetup${size}.png"
-      DESTINATION "share/icons/hicolor/${size}x${size}/apps"
+      DESTINATION "${CMAKE_XDGDATA_DIR}/icons/hicolor/${size}x${size}/apps"
       ${COMPONENT}
       RENAME      "CMakeSetup.png")
   endforeach ()
@@ -193,10 +202,10 @@ if(UNIX AND NOT APPLE)
   # install a desktop file so CMake appears in the application start menu
   # with an icon
   install(FILES CMake.desktop
-    DESTINATION share/applications
+    DESTINATION "${CMAKE_XDGDATA_DIR}/applications"
     ${COMPONENT})
   install(FILES cmakecache.xml
-    DESTINATION share/mime/packages
+    DESTINATION "${CMAKE_XDGDATA_DIR}/mime/packages"
     ${COMPONENT})
 endif()
 

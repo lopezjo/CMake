@@ -2,11 +2,25 @@
 # CMakeForceCompiler
 # ------------------
 #
+# Discouraged.  Avoid using this module if possible.  It will be deprecated
+# by a future version of CMake once alternatives have been provided for all
+# toolchain file use cases.
 #
+# The macros provided by this module were once intended for use by
+# cross-compiling toolchain files when CMake was not able to automatically
+# detect the compiler identification.  Since the introduction of this module,
+# CMake's compiler identification capabilities have improved and can now be
+# taught to recognize any compiler.  Furthermore, the suite of information
+# CMake detects from a compiler is now too extensive to be provided by
+# toolchain files using these macros.
 #
-# This module defines macros intended for use by cross-compiling
-# toolchain files when CMake is not able to automatically detect the
-# compiler identification.
+# The only known remaining use case for these macros is to write toolchain
+# files for cross-compilers that cannot link binaries without special flags or
+# custom linker scripts.  These macros cause CMake to skip checks it normally
+# performs as part of enabling a language and introspecting the toolchain.
+# However, skipping these checks may limit some generation functionality.
+#
+# -------------------------------------------------------------------------
 #
 # Macro CMAKE_FORCE_C_COMPILER has the following signature:
 #

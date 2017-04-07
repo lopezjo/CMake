@@ -14,8 +14,9 @@
 #define cmLinkItem_h
 
 #include "cmListFileCache.h"
+#include "cmSystemTools.h"
 
-class cmTarget;
+class cmGeneratorTarget;
 
 // Basic information about each link item.
 class cmLinkItem: public std::string
@@ -24,9 +25,9 @@ class cmLinkItem: public std::string
 public:
   cmLinkItem(): std_string(), Target(0) {}
   cmLinkItem(const std_string& n,
-             cmTarget const* t): std_string(n), Target(t) {}
+             cmGeneratorTarget const* t): std_string(n), Target(t) {}
   cmLinkItem(cmLinkItem const& r): std_string(r), Target(r.Target) {}
-  cmTarget const* Target;
+  cmGeneratorTarget const* Target;
 };
 
 class cmLinkImplItem: public cmLinkItem
@@ -34,7 +35,7 @@ class cmLinkImplItem: public cmLinkItem
 public:
   cmLinkImplItem(): cmLinkItem(), Backtrace(), FromGenex(false) {}
   cmLinkImplItem(std::string const& n,
-                 cmTarget const* t,
+                 cmGeneratorTarget const* t,
                  cmListFileBacktrace const& bt,
                  bool fromGenex):
     cmLinkItem(n, t), Backtrace(bt), FromGenex(fromGenex) {}
@@ -97,7 +98,7 @@ struct cmOptionalLinkInterface: public cmLinkInterface
 };
 
 struct cmHeadToLinkInterfaceMap:
-    public std::map<cmTarget const*, cmOptionalLinkInterface>
+    public std::map<cmGeneratorTarget const*, cmOptionalLinkInterface>
 {
 };
 
@@ -117,5 +118,28 @@ struct cmOptionalLinkImplementation: public cmLinkImplementation
   bool LanguagesDone;
   bool HadHeadSensitiveCondition;
 };
+
+/** Compute the link type to use for the given configuration.  */
+inline cmTargetLinkLibraryType
+CMP0003_ComputeLinkType(const std::string& config,
+                        std::vector<std::string> const& debugConfigs)
+{
+  // No configuration is always optimized.
+  if(config.empty())
+    {
+    return OPTIMIZED_LibraryType;
+    }
+
+  // Check if any entry in the list matches this configuration.
+  std::string configUpper = cmSystemTools::UpperCase(config);
+  if (std::find(debugConfigs.begin(), debugConfigs.end(), configUpper) !=
+      debugConfigs.end())
+    {
+    return DEBUG_LibraryType;
+    }
+  // The current configuration is not a debug configuration.
+  return OPTIMIZED_LibraryType;
+}
+
 
 #endif

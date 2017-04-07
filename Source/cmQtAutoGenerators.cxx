@@ -175,12 +175,14 @@ bool cmQtAutoGenerators::Run(const std::string& targetDirectory,
   cmake cm;
   cm.SetHomeOutputDirectory(targetDirectory);
   cm.SetHomeDirectory(targetDirectory);
+  cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator gg(&cm);
 
   cmState::Snapshot snapshot = cm.GetCurrentSnapshot();
+  snapshot.GetDirectory().SetCurrentBinary(targetDirectory);
+  snapshot.GetDirectory().SetCurrentSource(targetDirectory);
+
   cmsys::auto_ptr<cmMakefile> mf(new cmMakefile(&gg, snapshot));
-  mf->SetCurrentBinaryDirectory(targetDirectory);
-  mf->SetCurrentSourceDirectory(targetDirectory);
   gg.SetCurrentMakefile(mf.get());
 
   this->ReadAutogenInfoFile(mf.get(), targetDirectory, config);
@@ -526,7 +528,7 @@ bool cmQtAutoGenerators::RunAutogen(cmMakefile* makefile)
   cmSystemTools::ExpandListArgument(this->Sources, sourceFiles);
 
   const std::vector<std::string>& headerExtensions =
-                                               makefile->GetHeaderExtensions();
+      makefile->GetCMakeInstance()->GetHeaderExtensions();
 
   std::map<std::string, std::vector<std::string> > includedUis;
   std::map<std::string, std::vector<std::string> > skippedUis;

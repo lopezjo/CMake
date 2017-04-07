@@ -653,6 +653,9 @@ set(CUDA_VERSION_STRING "${CUDA_VERSION}")
 # Support for arm cross compilation with CUDA 5.5
 if(CUDA_VERSION VERSION_GREATER "5.0" AND CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_PROCESSOR MATCHES "arm" AND EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/armv7-linux-gnueabihf")
   set(CUDA_TOOLKIT_TARGET_DIR "${CUDA_TOOLKIT_ROOT_DIR}/targets/armv7-linux-gnueabihf" CACHE PATH "Toolkit target location.")
+# Support for aarch64 cross compilation with CUDA 7.0
+elseif(CUDA_VERSION VERSION_GREATER "6.5" AND CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" AND EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux")
+  set(CUDA_TOOLKIT_TARGET_DIR "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux" CACHE PATH "Toolkit target location.")
 else()
   set(CUDA_TOOLKIT_TARGET_DIR "${CUDA_TOOLKIT_ROOT_DIR}" CACHE PATH "Toolkit target location.")
 endif()
@@ -764,12 +767,8 @@ if(CUDA_USE_STATIC_CUDA_RUNTIME)
     if (NOT APPLE)
       # Here is librt that has things such as, clock_gettime, shm_open, and shm_unlink.
       find_library(CUDA_rt_LIBRARY rt)
-      find_library(CUDA_dl_LIBRARY dl)
       if (NOT CUDA_rt_LIBRARY)
         message(WARNING "Expecting to find librt for libcudart_static, but didn't find it.")
-      endif()
-      if (NOT CUDA_dl_LIBRARY)
-        message(WARNING "Expecting to find libdl for libcudart_static, but didn't find it.")
       endif()
     endif()
   endif()
@@ -793,12 +792,9 @@ set(CUDA_LIBRARIES)
 if(CUDA_BUILD_EMULATION AND CUDA_CUDARTEMU_LIBRARY)
   list(APPEND CUDA_LIBRARIES ${CUDA_CUDARTEMU_LIBRARY})
 elseif(CUDA_USE_STATIC_CUDA_RUNTIME AND CUDA_cudart_static_LIBRARY)
-  list(APPEND CUDA_LIBRARIES ${CUDA_cudart_static_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
+  list(APPEND CUDA_LIBRARIES ${CUDA_cudart_static_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} ${CMAKE_DL_LIBS})
   if (CUDA_rt_LIBRARY)
     list(APPEND CUDA_LIBRARIES ${CUDA_rt_LIBRARY})
-  endif()
-  if (CUDA_dl_LIBRARY)
-    list(APPEND CUDA_LIBRARIES ${CUDA_dl_LIBRARY})
   endif()
   if(APPLE)
     # We need to add the default path to the driver (libcuda.dylib) as an rpath, so that
@@ -1460,6 +1456,11 @@ macro(CUDA_WRAP_SRCS cuda_target format generated_files)
         set(cuda_build_comment_string "Building NVCC (${cuda_build_type}) object ${generated_file_relative_path}")
       endif()
 
+      set(_verbatim VERBATIM)
+      if(ccbin_flags MATCHES "\\$\\(VCInstallDir\\)")
+        set(_verbatim "")
+      endif()
+
       # Build the generated file and dependency file ##########################
       add_custom_command(
         OUTPUT ${generated_file}
@@ -1478,6 +1479,7 @@ macro(CUDA_WRAP_SRCS cuda_target format generated_files)
           -P "${custom_target_script}"
         WORKING_DIRECTORY "${cuda_compile_intermediate_directory}"
         COMMENT "${cuda_build_comment_string}"
+        ${_verbatim}
         )
 
       # Make sure the build system knows the file is generated.
@@ -1549,7 +1551,12 @@ function(CUDA_LINK_SEPARABLE_COMPILATION_OBJECTS output_file cuda_target options
     list( FIND nvcc_flags "-ccbin" ccbin_found0 )
     list( FIND nvcc_flags "--compiler-bindir" ccbin_found1 )
     if( ccbin_found0 LESS 0 AND ccbin_found1 LESS 0 AND CUDA_HOST_COMPILER )
-      list(APPEND nvcc_flags -ccbin "\"${CUDA_HOST_COMPILER}\"")
+      # Match VERBATIM check below.
+      if(CUDA_HOST_COMPILER MATCHES "\\$\\(VCInstallDir\\)")
+        list(APPEND nvcc_flags -ccbin "\"${CUDA_HOST_COMPILER}\"")
+      else()
+        list(APPEND nvcc_flags -ccbin "${CUDA_HOST_COMPILER}")
+      endif()
     endif()
 
     # Create a list of flags specified by CUDA_NVCC_FLAGS_${CONFIG} and CMAKE_${CUDA_C_OR_CXX}_FLAGS*
@@ -1589,6 +1596,11 @@ function(CUDA_LINK_SEPARABLE_COMPILATION_OBJECTS output_file cuda_target options
       set(do_obj_build_rule FALSE)
     endif()
 
+    set(_verbatim VERBATIM)
+    if(nvcc_flags MATCHES "\\$\\(VCInstallDir\\)")
+      set(_verbatim "")
+    endif()
+
     if (do_obj_build_rule)
       add_custom_command(
         OUTPUT ${output_file}
@@ -1596,6 +1608,7 @@ function(CUDA_LINK_SEPARABLE_COMPILATION_OBJECTS output_file cuda_target options
         COMMAND ${CUDA_NVCC_EXECUTABLE} ${nvcc_flags} -dlink ${object_files} -o ${output_file}
         ${flags}
         COMMENT "Building NVCC intermediate link file ${output_file_relative_path}"
+        ${_verbatim}
         )
     else()
       get_filename_component(output_file_dir "${output_file}" DIRECTORY)
@@ -1605,6 +1618,7 @@ function(CUDA_LINK_SEPARABLE_COMPILATION_OBJECTS output_file cuda_target options
         COMMAND ${CMAKE_COMMAND} -E echo "Building NVCC intermediate link file ${output_file_relative_path}"
         COMMAND ${CMAKE_COMMAND} -E make_directory "${output_file_dir}"
         COMMAND ${CUDA_NVCC_EXECUTABLE} ${nvcc_flags} ${flags} -dlink ${object_files} -o "${output_file}"
+        ${_verbatim}
         )
     endif()
  endif()

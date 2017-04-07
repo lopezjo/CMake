@@ -16,7 +16,6 @@
 #include "cmLocalUnixMakefileGenerator3.h"
 #include "cmMakefile.h"
 #include "cmSourceFile.h"
-#include "cmTarget.h"
 #include "cmake.h"
 #include "cmAlgorithms.h"
 
@@ -26,7 +25,7 @@ cmMakefileLibraryTargetGenerator
   cmMakefileTargetGenerator(target)
 {
   this->CustomCommandDriver = OnDepends;
-  if (this->Target->GetType() != cmTarget::INTERFACE_LIBRARY)
+  if (this->GeneratorTarget->GetType() != cmState::INTERFACE_LIBRARY)
     {
     this->GeneratorTarget->GetLibraryNames(
       this->TargetNameOut, this->TargetNameSO, this->TargetNameReal,
@@ -62,12 +61,12 @@ void cmMakefileLibraryTargetGenerator::WriteRuleFiles()
 
   // write the link rules
   // Write the rule for this target type.
-  switch(this->Target->GetType())
+  switch(this->GeneratorTarget->GetType())
     {
-    case cmTarget::STATIC_LIBRARY:
+    case cmState::STATIC_LIBRARY:
       this->WriteStaticLibraryRules();
       break;
-    case cmTarget::SHARED_LIBRARY:
+    case cmState::SHARED_LIBRARY:
       this->WriteSharedLibraryRules(false);
       if(this->GeneratorTarget->NeedRelinkBeforeInstall(this->ConfigName))
         {
@@ -75,7 +74,7 @@ void cmMakefileLibraryTargetGenerator::WriteRuleFiles()
         this->WriteSharedLibraryRules(true);
         }
       break;
-    case cmTarget::MODULE_LIBRARY:
+    case cmState::MODULE_LIBRARY:
       this->WriteModuleLibraryRules(false);
       if(this->GeneratorTarget->NeedRelinkBeforeInstall(this->ConfigName))
         {
@@ -83,7 +82,7 @@ void cmMakefileLibraryTargetGenerator::WriteRuleFiles()
         this->WriteModuleLibraryRules(true);
         }
       break;
-    case cmTarget::OBJECT_LIBRARY:
+    case cmState::OBJECT_LIBRARY:
       this->WriteObjectLibraryRules();
       break;
     default:
@@ -114,19 +113,20 @@ void cmMakefileLibraryTargetGenerator::WriteObjectLibraryRules()
 
   // Add post-build rules.
   this->LocalGenerator->
-    AppendCustomCommands(commands, this->Target->GetPostBuildCommands(),
-                         this->Target);
+    AppendCustomCommands(commands,
+                         this->GeneratorTarget->GetPostBuildCommands(),
+                         this->GeneratorTarget);
 
   // Depend on the object files.
   this->AppendObjectDepends(depends);
 
   // Write the rule.
   this->LocalGenerator->WriteMakeRule(*this->BuildFileStream, 0,
-                                      this->Target->GetName(),
+                                      this->GeneratorTarget->GetName(),
                                       depends, commands, true);
 
   // Write the main driver rule to build everything in this target.
-  this->WriteTargetDriverRule(this->Target->GetName(), false);
+  this->WriteTargetDriverRule(this->GeneratorTarget->GetName(), false);
 }
 
 //----------------------------------------------------------------------------
@@ -146,14 +146,14 @@ void cmMakefileLibraryTargetGenerator::WriteStaticLibraryRules()
 
   std::string extraFlags;
   this->LocalGenerator->GetStaticLibraryFlags(extraFlags,
-    cmSystemTools::UpperCase(this->ConfigName), this->Target);
+    cmSystemTools::UpperCase(this->ConfigName), this->GeneratorTarget);
   this->WriteLibraryRules(linkRuleVar, extraFlags, false);
 }
 
 //----------------------------------------------------------------------------
 void cmMakefileLibraryTargetGenerator::WriteSharedLibraryRules(bool relink)
 {
-  if(this->Target->IsFrameworkOnApple())
+  if(this->GeneratorTarget->IsFrameworkOnApple())
     {
     this->WriteFrameworkRules(relink);
     return;
@@ -166,11 +166,11 @@ void cmMakefileLibraryTargetGenerator::WriteSharedLibraryRules(bool relink)
 
   std::string extraFlags;
   this->LocalGenerator->AppendFlags
-    (extraFlags, this->Target->GetProperty("LINK_FLAGS"));
+    (extraFlags, this->GeneratorTarget->GetProperty("LINK_FLAGS"));
   std::string linkFlagsConfig = "LINK_FLAGS_";
   linkFlagsConfig += cmSystemTools::UpperCase(this->ConfigName);
   this->LocalGenerator->AppendFlags
-    (extraFlags, this->Target->GetProperty(linkFlagsConfig));
+    (extraFlags, this->GeneratorTarget->GetProperty(linkFlagsConfig));
 
   this->LocalGenerator->AddConfigVariableFlags
     (extraFlags, "CMAKE_SHARED_LINKER_FLAGS", this->ConfigName);
@@ -190,11 +190,11 @@ void cmMakefileLibraryTargetGenerator::WriteModuleLibraryRules(bool relink)
 
   std::string extraFlags;
   this->LocalGenerator->AppendFlags(extraFlags,
-                                    this->Target->GetProperty("LINK_FLAGS"));
+                           this->GeneratorTarget->GetProperty("LINK_FLAGS"));
   std::string linkFlagsConfig = "LINK_FLAGS_";
   linkFlagsConfig += cmSystemTools::UpperCase(this->ConfigName);
   this->LocalGenerator->AppendFlags
-    (extraFlags, this->Target->GetProperty(linkFlagsConfig));
+    (extraFlags, this->GeneratorTarget->GetProperty(linkFlagsConfig));
   this->LocalGenerator->AddConfigVariableFlags
     (extraFlags, "CMAKE_MODULE_LINKER_FLAGS", this->ConfigName);
   this->AddModuleDefinitionFlag(extraFlags);
@@ -213,11 +213,11 @@ void cmMakefileLibraryTargetGenerator::WriteFrameworkRules(bool relink)
 
   std::string extraFlags;
   this->LocalGenerator->AppendFlags(extraFlags,
-                                    this->Target->GetProperty("LINK_FLAGS"));
+                             this->GeneratorTarget->GetProperty("LINK_FLAGS"));
   std::string linkFlagsConfig = "LINK_FLAGS_";
   linkFlagsConfig += cmSystemTools::UpperCase(this->ConfigName);
   this->LocalGenerator->AppendFlags
-    (extraFlags, this->Target->GetProperty(linkFlagsConfig));
+    (extraFlags, this->GeneratorTarget->GetProperty(linkFlagsConfig));
   this->LocalGenerator->AddConfigVariableFlags
     (extraFlags, "CMAKE_MACOSX_FRAMEWORK_LINKER_FLAGS", this->ConfigName);
 
@@ -244,7 +244,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   if(linkLanguage.empty())
     {
     cmSystemTools::Error("Cannot determine link language for target \"",
-                         this->Target->GetName().c_str(), "\".");
+                         this->GeneratorTarget->GetName().c_str(), "\".");
     return;
     }
 
@@ -253,8 +253,8 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   this->LocalGenerator->AppendFlags(linkFlags, extraFlags);
 
   // Add OSX version flags, if any.
-  if(this->Target->GetType() == cmTarget::SHARED_LIBRARY ||
-     this->Target->GetType() == cmTarget::MODULE_LIBRARY)
+  if(this->GeneratorTarget->GetType() == cmState::SHARED_LIBRARY ||
+     this->GeneratorTarget->GetType() == cmState::MODULE_LIBRARY)
     {
     this->AppendOSXVerFlag(linkFlags, linkLanguage, "COMPATIBILITY", true);
     this->AppendOSXVerFlag(linkFlags, linkLanguage, "CURRENT", false);
@@ -273,15 +273,15 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   // Construct the full path version of the names.
   std::string outpath;
   std::string outpathImp;
-  if(this->Target->IsFrameworkOnApple())
+  if(this->GeneratorTarget->IsFrameworkOnApple())
     {
-    outpath = this->Target->GetDirectory(this->ConfigName);
+    outpath = this->GeneratorTarget->GetDirectory(this->ConfigName);
     this->OSXBundleGenerator->CreateFramework(targetName, outpath);
     outpath += "/";
     }
-  else if(this->Target->IsCFBundleOnApple())
+  else if(this->GeneratorTarget->IsCFBundleOnApple())
     {
-    outpath = this->Target->GetDirectory(this->ConfigName);
+    outpath = this->GeneratorTarget->GetDirectory(this->ConfigName);
     this->OSXBundleGenerator->CreateCFBundle(targetName, outpath);
     outpath += "/";
     }
@@ -299,12 +299,12 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
     }
   else
     {
-    outpath = this->Target->GetDirectory(this->ConfigName);
+    outpath = this->GeneratorTarget->GetDirectory(this->ConfigName);
     cmSystemTools::MakeDirectory(outpath.c_str());
     outpath += "/";
     if(!targetNameImport.empty())
       {
-      outpathImp = this->Target->GetDirectory(this->ConfigName, true);
+      outpathImp = this->GeneratorTarget->GetDirectory(this->ConfigName, true);
       cmSystemTools::MakeDirectory(outpathImp.c_str());
       outpathImp += "/";
       }
@@ -314,7 +314,8 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
     this->GeneratorTarget->GetCompilePDBDirectory(this->ConfigName);
   cmSystemTools::MakeDirectory(compilePdbOutputPath.c_str());
 
-  std::string pdbOutputPath = this->Target->GetPDBDirectory(this->ConfigName);
+  std::string pdbOutputPath =
+      this->GeneratorTarget->GetPDBDirectory(this->ConfigName);
   cmSystemTools::MakeDirectory(pdbOutputPath.c_str());
   pdbOutputPath += "/";
 
@@ -350,16 +351,16 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
     // Add the link message.
     std::string buildEcho = "Linking ";
     buildEcho += linkLanguage;
-    switch(this->Target->GetType())
+    switch(this->GeneratorTarget->GetType())
       {
-      case cmTarget::STATIC_LIBRARY:
+      case cmState::STATIC_LIBRARY:
         buildEcho += " static library ";
         break;
-      case cmTarget::SHARED_LIBRARY:
+      case cmState::SHARED_LIBRARY:
         buildEcho += " shared library ";
         break;
-      case cmTarget::MODULE_LIBRARY:
-        if (this->Target->IsCFBundleOnApple())
+      case cmState::MODULE_LIBRARY:
+        if (this->GeneratorTarget->IsCFBundleOnApple())
             buildEcho += " CFBundle";
         buildEcho += " shared module ";
         break;
@@ -374,12 +375,12 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
     }
 
   const char* forbiddenFlagVar = 0;
-  switch(this->Target->GetType())
+  switch(this->GeneratorTarget->GetType())
     {
-    case cmTarget::SHARED_LIBRARY:
+    case cmState::SHARED_LIBRARY:
       forbiddenFlagVar = "_CREATE_SHARED_LIBRARY_FORBIDDEN_FLAGS";
       break;
-    case cmTarget::MODULE_LIBRARY:
+    case cmState::MODULE_LIBRARY:
       forbiddenFlagVar = "_CREATE_SHARED_MODULE_FORBIDDEN_FLAGS";
       break;
     default: break;
@@ -409,7 +410,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
         cmLocalGenerator::START_OUTPUT,
         cmLocalGenerator::UNCHANGED));
     std::string implib;
-    if(this->Target->GetImplibGNUtoMS(targetFullPathImport, implib))
+    if(this->GeneratorTarget->GetImplibGNUtoMS(targetFullPathImport, implib))
       {
       libCleanFiles.push_back(this->Convert(implib,
                                             cmLocalGenerator::START_OUTPUT,
@@ -428,7 +429,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
 #ifdef _WIN32
   // There may be a manifest file for this target.  Add it to the
   // clean set just in case.
-  if(this->Target->GetType() != cmTarget::STATIC_LIBRARY)
+  if(this->GeneratorTarget->GetType() != cmState::STATIC_LIBRARY)
     {
     libCleanFiles.push_back(
       this->Convert((targetFullPath+".manifest").c_str(),
@@ -440,10 +441,10 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   std::vector<std::string> commands1;
   // Add a command to remove any existing files for this library.
   // for static libs only
-  if(this->Target->GetType() == cmTarget::STATIC_LIBRARY)
+  if(this->GeneratorTarget->GetType() == cmState::STATIC_LIBRARY)
     {
     this->LocalGenerator->AppendCleanCommand(commands1, libCleanFiles,
-                                             *this->Target, "target");
+                                             this->GeneratorTarget, "target");
     this->LocalGenerator->CreateCDCommand
       (commands1,
        this->Makefile->GetCurrentBinaryDirectory(),
@@ -456,11 +457,13 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   if(!relink)
     {
     this->LocalGenerator
-      ->AppendCustomCommands(commands, this->Target->GetPreBuildCommands(),
-                             this->Target);
+      ->AppendCustomCommands(commands,
+                        this->GeneratorTarget->GetPreBuildCommands(),
+                        this->GeneratorTarget);
     this->LocalGenerator
-      ->AppendCustomCommands(commands, this->Target->GetPreLinkCommands(),
-                             this->Target);
+      ->AppendCustomCommands(commands,
+                        this->GeneratorTarget->GetPreLinkCommands(),
+                        this->GeneratorTarget);
     }
 
   // Determine whether a link script will be used.
@@ -496,7 +499,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   std::vector<std::string> archiveAppendCommands;
   std::vector<std::string> archiveFinishCommands;
   std::string::size_type archiveCommandLimit = std::string::npos;
-  if(this->Target->GetType() == cmTarget::STATIC_LIBRARY)
+  if(this->GeneratorTarget->GetType() == cmState::STATIC_LIBRARY)
     {
     haveStaticLibraryRule =
       this->Makefile->GetDefinition(linkRuleVar)? true:false;
@@ -551,7 +554,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
 
   // Collect up flags to link in needed libraries.
   std::string linkLibs;
-  if(this->Target->GetType() != cmTarget::STATIC_LIBRARY)
+  if(this->GeneratorTarget->GetType() != cmState::STATIC_LIBRARY)
     {
     this->CreateLinkLibs(linkLibs, relink, useResponseFileForLibs, depends,
                          useWatcomQuote);
@@ -565,15 +568,15 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
                           useWatcomQuote);
 
   // maybe create .def file from list of objects
-  if (this->Target->GetType() == cmTarget::SHARED_LIBRARY &&
+  if (this->GeneratorTarget->GetType() == cmState::SHARED_LIBRARY &&
       this->Makefile->IsOn("CMAKE_SUPPORT_WINDOWS_EXPORT_ALL_SYMBOLS"))
     {
-    if(this->Target->GetPropertyAsBool("WINDOWS_EXPORT_ALL_SYMBOLS"))
+    if(this->GeneratorTarget->GetPropertyAsBool("WINDOWS_EXPORT_ALL_SYMBOLS"))
       {
       std::string name_of_def_file =
-        this->Target->GetSupportDirectory();
+        this->GeneratorTarget->GetSupportDirectory();
       name_of_def_file += std::string("/") +
-        this->Target->GetName();
+        this->GeneratorTarget->GetName();
       name_of_def_file += ".def";
       std::string cmd = cmSystemTools::GetCMakeCommand();
       cmd = this->Convert(cmd, cmLocalGenerator::NONE,
@@ -629,7 +632,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   std::ostringstream minorStream;
   int major;
   int minor;
-  this->Target->GetTargetVersion(major, minor);
+  this->GeneratorTarget->GetTargetVersion(major, minor);
   majorStream << major;
   minorStream << minor;
   targetVersionMajor = majorStream.str();
@@ -639,10 +642,10 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   vars.TargetVersionMinor = targetVersionMinor.c_str();
 
   vars.RuleLauncher = "RULE_LAUNCH_LINK";
-  vars.CMTarget = this->Target;
+  vars.CMTarget = this->GeneratorTarget;
   vars.Language = linkLanguage.c_str();
   vars.Objects = buildObjs.c_str();
-  std::string objectDir = this->Target->GetSupportDirectory();
+  std::string objectDir = this->GeneratorTarget->GetSupportDirectory();
   objectDir = this->Convert(objectDir,
                             cmLocalGenerator::START_OUTPUT,
                             cmLocalGenerator::SHELL);
@@ -666,7 +669,7 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
 
   // Compute the directory portion of the install_name setting.
   std::string install_name_dir;
-  if(this->Target->GetType() == cmTarget::SHARED_LIBRARY)
+  if(this->GeneratorTarget->GetType() == cmState::SHARED_LIBRARY)
     {
     // Get the install_name directory for the build tree.
     install_name_dir =
@@ -790,7 +793,8 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
 
   // Add a rule to create necessary symlinks for the library.
   // Frameworks are handled by cmOSXBundleGenerator.
-  if(targetOutPath != targetOutPathReal && !this->Target->IsFrameworkOnApple())
+  if(targetOutPath != targetOutPathReal
+     && !this->GeneratorTarget->IsFrameworkOnApple())
     {
     std::string symlink = "$(CMAKE_COMMAND) -E cmake_symlink_library ";
     symlink += targetOutPathReal;
@@ -809,8 +813,9 @@ void cmMakefileLibraryTargetGenerator::WriteLibraryRules
   if(!relink)
     {
     this->LocalGenerator->
-      AppendCustomCommands(commands, this->Target->GetPostBuildCommands(),
-                           this->Target);
+      AppendCustomCommands(commands,
+                       this->GeneratorTarget->GetPostBuildCommands(),
+                       this->GeneratorTarget);
     }
 
   // Compute the list of outputs.
@@ -861,7 +866,7 @@ cmMakefileLibraryTargetGenerator
   int major;
   int minor;
   int patch;
-  this->Target->GetTargetVersion(so, major, minor, patch);
+  this->GeneratorTarget->GetTargetVersion(so, major, minor, patch);
   if(major > 0 || minor > 0 || patch > 0)
     {
     // Append the flag since a non-zero version is specified.

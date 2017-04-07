@@ -191,6 +191,7 @@ Properties on Targets
    /prop_tgt/INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
    /prop_tgt/INTERPROCEDURAL_OPTIMIZATION_CONFIG
    /prop_tgt/INTERPROCEDURAL_OPTIMIZATION
+   /prop_tgt/IOS_INSTALL_COMBINED
    /prop_tgt/JOB_POOL_COMPILE
    /prop_tgt/JOB_POOL_LINK
    /prop_tgt/LABELS
@@ -269,6 +270,7 @@ Properties on Targets
    /prop_tgt/VS_SCC_LOCALPATH
    /prop_tgt/VS_SCC_PROJECTNAME
    /prop_tgt/VS_SCC_PROVIDER
+   /prop_tgt/VS_SDK_REFERENCES
    /prop_tgt/VS_WINDOWS_TARGET_PLATFORM_MIN_VERSION
    /prop_tgt/VS_WINRT_COMPONENT
    /prop_tgt/VS_WINRT_EXTENSIONS

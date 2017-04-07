@@ -16,7 +16,6 @@
 #include "cmGlobalNinjaGenerator.h"
 #include "cmMakefile.h"
 #include "cmSourceFile.h"
-#include "cmTarget.h"
 #include "cmCustomCommandGenerator.h"
 
 cmNinjaUtilityTargetGenerator::cmNinjaUtilityTargetGenerator(
@@ -34,8 +33,8 @@ void cmNinjaUtilityTargetGenerator::Generate()
   cmNinjaDeps deps, outputs, util_outputs(1, utilCommandName);
 
   const std::vector<cmCustomCommand> *cmdLists[2] = {
-    &this->GetTarget()->GetPreBuildCommands(),
-    &this->GetTarget()->GetPostBuildCommands()
+    &this->GetGeneratorTarget()->GetPreBuildCommands(),
+    &this->GetGeneratorTarget()->GetPostBuildCommands()
   };
 
   bool uses_terminal = false;
@@ -58,7 +57,7 @@ void cmNinjaUtilityTargetGenerator::Generate()
   std::vector<cmSourceFile*> sources;
   std::string config = this->GetMakefile()
                            ->GetSafeDefinition("CMAKE_BUILD_TYPE");
-  this->GetTarget()->GetSourceFiles(sources, config);
+  this->GetGeneratorTarget()->GetSourceFiles(sources, config);
   for(std::vector<cmSourceFile*>::const_iterator source = sources.begin();
       source != sources.end(); ++source)
     {
@@ -66,7 +65,8 @@ void cmNinjaUtilityTargetGenerator::Generate()
       {
       cmCustomCommandGenerator ccg(*cc, this->GetConfigName(),
                                    this->GetLocalGenerator());
-      this->GetLocalGenerator()->AddCustomCommandTarget(cc, this->GetTarget());
+      this->GetLocalGenerator()->AddCustomCommandTarget(cc,
+          this->GetGeneratorTarget());
 
       // Depend on all custom command outputs.
       const std::vector<std::string>& ccOutputs = ccg.GetOutputs();
@@ -78,8 +78,10 @@ void cmNinjaUtilityTargetGenerator::Generate()
       }
     }
 
-  this->GetLocalGenerator()->AppendTargetOutputs(this->GetTarget(), outputs);
-  this->GetLocalGenerator()->AppendTargetDepends(this->GetTarget(), deps);
+  this->GetLocalGenerator()->AppendTargetOutputs(this->GetGeneratorTarget(),
+                                                 outputs);
+  this->GetLocalGenerator()->AppendTargetDepends(this->GetGeneratorTarget(),
+                                                 deps);
 
   if (commands.empty()) {
     this->GetGlobalGenerator()->WritePhonyBuild(this->GetBuildFileStream(),
@@ -90,7 +92,8 @@ void cmNinjaUtilityTargetGenerator::Generate()
   } else {
     std::string command =
       this->GetLocalGenerator()->BuildCommandLine(commands);
-    const char *echoStr = this->GetTarget()->GetProperty("EchoString");
+    const char *echoStr =
+        this->GetGeneratorTarget()->GetProperty("EchoString");
     std::string desc;
     if (echoStr)
       desc = echoStr;
@@ -103,13 +106,13 @@ void cmNinjaUtilityTargetGenerator::Generate()
       command,
       "$(CMAKE_SOURCE_DIR)",
       this->GetLocalGenerator()->ConvertToOutputFormat(
-        this->GetTarget()->GetMakefile()->GetHomeDirectory(),
+        this->GetLocalGenerator()->GetSourceDirectory(),
         cmLocalGenerator::SHELL).c_str());
     cmSystemTools::ReplaceString(
       command,
       "$(CMAKE_BINARY_DIR)",
       this->GetLocalGenerator()->ConvertToOutputFormat(
-        this->GetTarget()->GetMakefile()->GetHomeOutputDirectory(),
+        this->GetLocalGenerator()->GetBinaryDirectory(),
         cmLocalGenerator::SHELL).c_str());
     cmSystemTools::ReplaceString(command, "$(ARGS)", "");
 
@@ -128,6 +131,7 @@ void cmNinjaUtilityTargetGenerator::Generate()
       desc,
       "Utility command for " + this->GetTargetName(),
       uses_terminal,
+      /*restat*/true,
       util_outputs,
       deps);
 
@@ -139,5 +143,5 @@ void cmNinjaUtilityTargetGenerator::Generate()
   }
 
   this->GetGlobalGenerator()->AddTargetAlias(this->GetTargetName(),
-                                             this->GetTarget());
+                                             this->GetGeneratorTarget());
 }

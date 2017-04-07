@@ -15,8 +15,6 @@
 #include "cmGlobalVisualStudioGenerator.h"
 #include "cmGlobalGeneratorFactory.h"
 
-class cmTarget;
-
 /** \class cmGlobalVisualStudio6Generator
  * \brief Write a Unix makefiles.
  *
@@ -37,6 +35,12 @@ public:
 
   /** Get the documentation entry for this generator.  */
   static void GetDocumentation(cmDocumentationEntry& entry);
+
+  /**
+   * Utilized by the generator factory to determine if this generator
+   * supports toolsets.
+   */
+  static bool SupportsToolset() { return false; }
 
   ///! Create a local generator appropriate to this Global Generator
   virtual cmLocalGenerator *CreateLocalGenerator(cmMakefile* mf);
@@ -94,12 +98,12 @@ private:
   void WriteDSWHeader(std::ostream& fout);
   void WriteProject(std::ostream& fout,
                     const std::string& name, const char* path,
-                    cmTarget const& t);
+                    cmGeneratorTarget const* t);
   void WriteExternalProject(std::ostream& fout,
                             const std::string& name, const char* path,
                             const std::set<std::string>& dependencies);
   void WriteDSWFooter(std::ostream& fout);
-  virtual std::string WriteUtilityDepend(cmTarget const* target);
+  virtual std::string WriteUtilityDepend(const cmGeneratorTarget *target);
   std::string MSDevCommand;
   bool MSDevCommandInitialized;
   std::string const& GetMSDevCommand();

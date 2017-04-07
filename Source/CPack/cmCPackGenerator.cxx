@@ -16,7 +16,6 @@
 #include "cmCPackLog.h"
 #include "cmake.h"
 #include "cmGlobalGenerator.h"
-#include "cmLocalGenerator.h"
 #include "cmGeneratedFileStream.h"
 #include "cmCPackComponentGroup.h"
 #include "cmXMLSafe.h"
@@ -718,13 +717,12 @@ int cmCPackGenerator::InstallProjectViaInstallCMakeProjects(
         cmake cm;
         cm.SetHomeDirectory("");
         cm.SetHomeOutputDirectory("");
+        cm.GetCurrentSnapshot().SetDefaultDefinitions();
         cm.AddCMakePaths();
         cm.SetProgressCallback(cmCPackGeneratorProgress, this);
         cmGlobalGenerator gg(&cm);
         cmsys::auto_ptr<cmMakefile> mf(
               new cmMakefile(&gg, cm.GetCurrentSnapshot()));
-        cmsys::auto_ptr<cmLocalGenerator> lg(
-              gg.CreateLocalGenerator(mf.get()));
         std::string realInstallDirectory = tempInstallDirectory;
         if ( !installSubDirectory.empty() && installSubDirectory != "/" )
           {

@@ -14,7 +14,6 @@
 #include "cmCTest.h"
 #include "cmake.h"
 #include "cmMakefile.h"
-#include "cmLocalGenerator.h"
 #include "cmGlobalGenerator.h"
 #include <cmsys/Base64.h>
 #include <cmsys/Directory.hxx>
@@ -518,9 +517,9 @@ int cmCTest::Initialize(const char* binary_dir, cmCTestStartCommand* command)
   cmake cm;
   cm.SetHomeDirectory("");
   cm.SetHomeOutputDirectory("");
+  cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator gg(&cm);
   cmsys::auto_ptr<cmMakefile> mf(new cmMakefile(&gg, cm.GetCurrentSnapshot()));
-  cmsys::auto_ptr<cmLocalGenerator> lg(gg.CreateLocalGenerator(mf.get()));
   if ( !this->ReadCustomConfigurationFileTree(this->BinaryDir.c_str(),
                                               mf.get()) )
     {

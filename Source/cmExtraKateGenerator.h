@@ -16,8 +16,6 @@
 #include "cmExternalMakefileProjectGenerator.h"
 
 class cmLocalGenerator;
-class cmMakefile;
-class cmTarget;
 class cmGeneratedFileStream;
 
 /** \class cmExtraKateGenerator
@@ -39,9 +37,10 @@ public:
 
   virtual void Generate();
 private:
-  void CreateKateProjectFile(const cmMakefile* mf) const;
-  void CreateDummyKateProjectFile(const cmMakefile* mf) const;
-  void WriteTargets(const cmMakefile* mf, cmGeneratedFileStream& fout) const;
+  void CreateKateProjectFile(const cmLocalGenerator* lg) const;
+  void CreateDummyKateProjectFile(const cmLocalGenerator* lg) const;
+  void WriteTargets(const cmLocalGenerator* lg,
+                    cmGeneratedFileStream& fout) const;
   void AppendTarget(cmGeneratedFileStream& fout,
                     const std::string&     target,
                     const std::string&     make,
@@ -49,7 +48,7 @@ private:
                     const std::string&     path,
                     const char*            homeOutputDir) const;
 
-  std::string GenerateFilesString(const cmMakefile* mf) const;
+  std::string GenerateFilesString(const cmLocalGenerator* lg) const;
   std::string GetPathBasename(const std::string& path) const;
   std::string GenerateProjectName(const std::string& name,
                                   const std::string& type,

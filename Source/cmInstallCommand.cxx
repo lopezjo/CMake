@@ -381,15 +381,15 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
       return false;
       }
     // Lookup this target in the current directory.
-    if(cmTarget* target=this->Makefile->FindTarget(*targetIt))
+    if(cmTarget* target=this->Makefile->FindLocalNonAliasTarget(*targetIt))
       {
       // Found the target.  Check its type.
-      if(target->GetType() != cmTarget::EXECUTABLE &&
-         target->GetType() != cmTarget::STATIC_LIBRARY &&
-         target->GetType() != cmTarget::SHARED_LIBRARY &&
-         target->GetType() != cmTarget::MODULE_LIBRARY &&
-         target->GetType() != cmTarget::OBJECT_LIBRARY &&
-         target->GetType() != cmTarget::INTERFACE_LIBRARY)
+      if(target->GetType() != cmState::EXECUTABLE &&
+         target->GetType() != cmState::STATIC_LIBRARY &&
+         target->GetType() != cmState::SHARED_LIBRARY &&
+         target->GetType() != cmState::MODULE_LIBRARY &&
+         target->GetType() != cmState::OBJECT_LIBRARY &&
+         target->GetType() != cmState::INTERFACE_LIBRARY)
         {
         std::ostringstream e;
         e << "TARGETS given target \"" << (*targetIt)
@@ -397,7 +397,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
         this->SetError(e.str());
         return false;
         }
-      else if(target->GetType() == cmTarget::OBJECT_LIBRARY)
+      else if(target->GetType() == cmState::OBJECT_LIBRARY)
         {
         std::ostringstream e;
         e << "TARGETS given OBJECT library \"" << (*targetIt)
@@ -450,7 +450,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
 
     switch(target.GetType())
       {
-      case cmTarget::SHARED_LIBRARY:
+      case cmState::SHARED_LIBRARY:
         {
         // Shared libraries are handled differently on DLL and non-DLL
         // platforms.  All windows platforms are DLL platforms including
@@ -533,7 +533,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
           }
         }
         break;
-      case cmTarget::STATIC_LIBRARY:
+      case cmState::STATIC_LIBRARY:
         {
         // Static libraries use ARCHIVE properties.
         if (!archiveArgs.GetDestination().empty())
@@ -551,7 +551,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
           }
         }
         break;
-      case cmTarget::MODULE_LIBRARY:
+      case cmState::MODULE_LIBRARY:
         {
         // Modules use LIBRARY properties.
         if (!libraryArgs.GetDestination().empty())
@@ -572,7 +572,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
           }
         }
         break;
-      case cmTarget::EXECUTABLE:
+      case cmState::EXECUTABLE:
         {
         if(target.IsAppBundleOnApple())
           {
@@ -636,7 +636,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
           }
         }
         break;
-      case cmTarget::INTERFACE_LIBRARY:
+      case cmState::INTERFACE_LIBRARY:
           // Nothing to do. An INTERFACE_LIBRARY can be installed, but the
           // only effect of that is to make it exportable. It installs no
           // other files itself.
@@ -655,7 +655,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
     bool createInstallGeneratorsForTargetFileSets = true;
 
     if(target.IsFrameworkOnApple()
-        || target.GetType() == cmTarget::INTERFACE_LIBRARY)
+        || target.GetType() == cmState::INTERFACE_LIBRARY)
       {
       createInstallGeneratorsForTargetFileSets = false;
       }
@@ -768,7 +768,7 @@ bool cmInstallCommand::HandleTargetsMode(std::vector<std::string> const& args)
     if(!exports.GetString().empty() && !namelinkOnly)
       {
       cmTargetExport *te = new cmTargetExport;
-      te->Target = &target;
+      te->TargetName = target.GetName();
       te->ArchiveGenerator = archiveGenerator;
       te->BundleGenerator = bundleGenerator;
       te->FrameworkGenerator = frameworkGenerator;
@@ -1374,16 +1374,19 @@ bool cmInstallCommand::HandleExportMode(std::vector<std::string> const& args)
         tei != exportSet->GetTargetExports()->end(); ++tei)
       {
       cmTargetExport const* te = *tei;
+      cmTarget* tgt =
+        this->Makefile->GetGlobalGenerator()->FindTarget(te->TargetName);
       const bool newCMP0022Behavior =
-                      te->Target->GetPolicyStatusCMP0022() != cmPolicies::WARN
-                   && te->Target->GetPolicyStatusCMP0022() != cmPolicies::OLD;
+        (tgt &&
+         tgt->GetPolicyStatusCMP0022() != cmPolicies::WARN &&
+         tgt->GetPolicyStatusCMP0022() != cmPolicies::OLD);
 
       if(!newCMP0022Behavior)
         {
         std::ostringstream e;
         e << "INSTALL(EXPORT) given keyword \""
           << "EXPORT_LINK_INTERFACE_LIBRARIES" << "\", but target \""
-          << te->Target->GetName()
+          << te->TargetName
           << "\" does not have policy CMP0022 set to NEW.";
         this->SetError(e.str());
         return false;

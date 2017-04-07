@@ -82,6 +82,9 @@ protected slots:
   void doOutputFindNext(bool directionForward = true);
   void doOutputFindPrev();
   void doOutputErrorNext();
+  void doRegexExplorerDialog();
+  /// display the modal warning messages dialog window
+  void doWarningMessagesDialog();
 
 protected:
 
@@ -101,7 +104,6 @@ protected:
   QAction* ExitAction;
   QAction* ConfigureAction;
   QAction* GenerateAction;
-  QAction* SuppressDevWarningsAction;
   QAction* WarnUninitializedAction;
   QAction* WarnUnusedAction;
   QAction* InstallForCommandLineAction;

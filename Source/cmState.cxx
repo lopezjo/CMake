@@ -12,6 +12,7 @@
 #include "cmState.h"
 
 #include "cmake.h"
+#include "cmVersion.h"
 #include "cmCacheManager.h"
 #include "cmCommand.h"
 #include "cmAlgorithms.h"
@@ -83,9 +84,8 @@ struct cmState::BuildsystemDirectoryStateType
   std::vector<cmState::Snapshot> Children;
 };
 
-cmState::cmState(cmake* cm)
-  : CMakeInstance(cm),
-    IsInTryCompile(false),
+cmState::cmState()
+  : IsInTryCompile(false),
     WindowsShell(false),
     WindowsVSIDE(false),
     WatcomWMake(false),
@@ -93,11 +93,40 @@ cmState::cmState(cmake* cm)
     NMake(false),
     MSYSShell(false)
 {
+  this->CacheManager = new cmCacheManager;
 }
 
 cmState::~cmState()
 {
+  delete this->CacheManager;
   cmDeleteAll(this->Commands);
+}
+
+const char* cmState::GetTargetTypeName(cmState::TargetType targetType)
+{
+  switch( targetType )
+    {
+      case cmState::STATIC_LIBRARY:
+        return "STATIC_LIBRARY";
+      case cmState::MODULE_LIBRARY:
+        return "MODULE_LIBRARY";
+      case cmState::SHARED_LIBRARY:
+        return "SHARED_LIBRARY";
+      case cmState::OBJECT_LIBRARY:
+        return "OBJECT_LIBRARY";
+      case cmState::EXECUTABLE:
+        return "EXECUTABLE";
+      case cmState::UTILITY:
+        return "UTILITY";
+      case cmState::GLOBAL_TARGET:
+        return "GLOBAL_TARGET";
+      case cmState::INTERFACE_LIBRARY:
+        return "INTERFACE_LIBRARY";
+      case cmState::UNKNOWN_LIBRARY:
+        return "UNKNOWN_LIBRARY";
+    }
+  assert(0 && "Unexpected target type");
+  return 0;
 }
 
 const char* cmCacheEntryTypes[] =
@@ -148,12 +177,30 @@ bool cmState::IsCacheEntryType(std::string const& key)
   return false;
 }
 
+bool cmState::LoadCache(const std::string& path, bool internal,
+                        std::set<std::string>& excludes,
+                        std::set<std::string>& includes)
+{
+  return this->CacheManager->LoadCache(path, internal,
+                                       excludes, includes);
+}
+
+bool cmState::SaveCache(const std::string& path)
+{
+  return this->CacheManager->SaveCache(path);
+}
+
+bool cmState::DeleteCache(const std::string& path)
+{
+  return this->CacheManager->DeleteCache(path);
+}
+
 std::vector<std::string> cmState::GetCacheEntryKeys() const
 {
   std::vector<std::string> definitions;
-  definitions.reserve(this->CMakeInstance->GetCacheManager()->GetSize());
+  definitions.reserve(this->CacheManager->GetSize());
   cmCacheManager::CacheIterator cit =
-    this->CMakeInstance->GetCacheManager()->GetCacheIterator();
+    this->CacheManager->GetCacheIterator();
   for ( cit.Begin(); !cit.IsAtEnd(); cit.Next() )
     {
     definitions.push_back(cit.GetName());
@@ -163,7 +210,7 @@ std::vector<std::string> cmState::GetCacheEntryKeys() const
 
 const char* cmState::GetCacheEntryValue(std::string const& key) const
 {
-  cmCacheManager::CacheEntry* e = this->CMakeInstance->GetCacheManager()
+  cmCacheManager::CacheEntry* e = this->CacheManager
              ->GetCacheEntry(key);
   if (!e)
     {
@@ -175,21 +222,21 @@ const char* cmState::GetCacheEntryValue(std::string const& key) const
 const char*
 cmState::GetInitializedCacheValue(std::string const& key) const
 {
-  return this->CMakeInstance->GetCacheManager()->GetInitializedCacheValue(key);
+  return this->CacheManager->GetInitializedCacheValue(key);
 }
 
 cmState::CacheEntryType
 cmState::GetCacheEntryType(std::string const& key) const
 {
   cmCacheManager::CacheIterator it =
-      this->CMakeInstance->GetCacheManager()->GetCacheIterator(key.c_str());
+      this->CacheManager->GetCacheIterator(key.c_str());
   return it.GetType();
 }
 
 void cmState::SetCacheEntryValue(std::string const& key,
                                          std::string const& value)
 {
-  this->CMakeInstance->GetCacheManager()->SetCacheEntryValue(key, value);
+  this->CacheManager->SetCacheEntryValue(key, value);
 }
 
 void cmState::SetCacheEntryProperty(std::string const& key,
@@ -197,7 +244,7 @@ void cmState::SetCacheEntryProperty(std::string const& key,
                             std::string const& value)
 {
   cmCacheManager::CacheIterator it =
-      this->CMakeInstance->GetCacheManager()->GetCacheIterator(key.c_str());
+      this->CacheManager->GetCacheIterator(key.c_str());
   it.SetProperty(propertyName, value.c_str());
 }
 
@@ -206,14 +253,14 @@ void cmState::SetCacheEntryBoolProperty(std::string const& key,
                             bool value)
 {
   cmCacheManager::CacheIterator it =
-      this->CMakeInstance->GetCacheManager()->GetCacheIterator(key.c_str());
+      this->CacheManager->GetCacheIterator(key.c_str());
   it.SetProperty(propertyName, value);
 }
 
 const char* cmState::GetCacheEntryProperty(std::string const& key,
                                               std::string const& propertyName)
 {
-  cmCacheManager::CacheIterator it = this->CMakeInstance->GetCacheManager()
+  cmCacheManager::CacheIterator it = this->CacheManager
              ->GetCacheIterator(key.c_str());
   if (!it.PropertyExists(propertyName))
     {
@@ -225,7 +272,7 @@ const char* cmState::GetCacheEntryProperty(std::string const& key,
 bool cmState::GetCacheEntryPropertyAsBool(std::string const& key,
                                               std::string const& propertyName)
 {
-  return this->CMakeInstance->GetCacheManager()
+  return this->CacheManager
              ->GetCacheIterator(key.c_str()).GetPropertyAsBool(propertyName);
 }
 
@@ -233,13 +280,13 @@ void cmState::AddCacheEntry(const std::string& key, const char* value,
                                     const char* helpString,
                                     cmState::CacheEntryType type)
 {
-  this->CMakeInstance->GetCacheManager()->AddCacheEntry(key, value,
+  this->CacheManager->AddCacheEntry(key, value,
                                                         helpString, type);
 }
 
 void cmState::RemoveCacheEntry(std::string const& key)
 {
-  this->CMakeInstance->GetCacheManager()->RemoveCacheEntry(key);
+  this->CacheManager->RemoveCacheEntry(key);
 }
 
 void cmState::AppendCacheEntryProperty(const std::string& key,
@@ -247,7 +294,7 @@ void cmState::AppendCacheEntryProperty(const std::string& key,
                                                const std::string& value,
                                                bool asString)
 {
-  this->CMakeInstance->GetCacheManager()
+  this->CacheManager
        ->GetCacheIterator(key.c_str()).AppendProperty(property,
                                                        value.c_str(),
                                                        asString);
@@ -256,7 +303,7 @@ void cmState::AppendCacheEntryProperty(const std::string& key,
 void cmState::RemoveCacheEntryProperty(std::string const& key,
                                               std::string const& propertyName)
 {
-  this->CMakeInstance->GetCacheManager()
+  this->CacheManager
        ->GetCacheIterator(key.c_str()).SetProperty(propertyName, (void*)0);
 }
 
@@ -288,10 +335,20 @@ cmState::Snapshot cmState::Reset()
   pos->PolicyScope = this->PolicyStack.Root();
   assert(pos->Policies.IsValid());
   assert(pos->PolicyRoot.IsValid());
+
+  {
+  std::string srcDir =
+      cmDefinitions::Get("CMAKE_SOURCE_DIR", pos->Vars, pos->Root);
+  std::string binDir =
+      cmDefinitions::Get("CMAKE_BINARY_DIR", pos->Vars, pos->Root);
   this->VarTree.Clear();
   pos->Vars = this->VarTree.Push(this->VarTree.Root());
   pos->Parent = this->VarTree.Root();
   pos->Root = this->VarTree.Root();
+
+  pos->Vars->Set("CMAKE_SOURCE_DIR", srcDir.c_str());
+  pos->Vars->Set("CMAKE_BINARY_DIR", binDir.c_str());
+  }
 
   this->DefineProperty
     ("RULE_LAUNCH_COMPILE", cmProperty::DIRECTORY,
@@ -660,6 +717,16 @@ bool cmState::UseMSYSShell() const
   return this->MSYSShell;
 }
 
+unsigned int cmState::GetCacheMajorVersion() const
+{
+  return this->CacheManager->GetCacheMajorVersion();
+}
+
+unsigned int cmState::GetCacheMinorVersion() const
+{
+  return this->CacheManager->GetCacheMinorVersion();
+}
+
 const char* cmState::GetBinaryDirectory() const
 {
   return this->BinaryDirectory.c_str();
@@ -808,8 +875,12 @@ cmState::CreateBuildsystemDirectorySnapshot(Snapshot originSnapshot,
   pos->Parent = origin;
   pos->Root = origin;
   pos->Vars = this->VarTree.Push(origin);
+
   cmState::Snapshot snapshot = cmState::Snapshot(this, pos);
   originSnapshot.Position->BuildSystemDirectory->Children.push_back(snapshot);
+  snapshot.SetDefaultDefinitions();
+  snapshot.InitializeFromParent();
+  snapshot.SetDirectoryDefinitions();
   return snapshot;
 }
 
@@ -1003,6 +1074,8 @@ void cmState::Directory::SetCurrentSource(std::string const& dir)
       loc,
       this->DirectoryState->CurrentSourceDirectoryComponents);
   this->ComputeRelativePathTopSource();
+
+  this->Snapshot_.SetDefinition("CMAKE_CURRENT_SOURCE_DIR", loc.c_str());
 }
 
 const char* cmState::Directory::GetCurrentBinary() const
@@ -1021,6 +1094,8 @@ void cmState::Directory::SetCurrentBinary(std::string const& dir)
       loc,
       this->DirectoryState->CurrentBinaryDirectoryComponents);
   this->ComputeRelativePathTopBinary();
+
+  this->Snapshot_.SetDefinition("CMAKE_CURRENT_BINARY_DIR", loc.c_str());
 }
 
 void cmState::Snapshot::Keep()
@@ -1319,6 +1394,70 @@ void InitializeContentFromParent(T& parentContent,
   contentEndPosition = thisContent.size();
 }
 
+void cmState::Snapshot::SetDefaultDefinitions()
+{
+  /* Up to CMake 2.4 here only WIN32, UNIX and APPLE were set.
+    With CMake must separate between target and host platform. In most cases
+    the tests for WIN32, UNIX and APPLE will be for the target system, so an
+    additional set of variables for the host system is required ->
+    CMAKE_HOST_WIN32, CMAKE_HOST_UNIX, CMAKE_HOST_APPLE.
+    WIN32, UNIX and APPLE are now set in the platform files in
+    Modules/Platforms/.
+    To keep cmake scripts (-P) and custom language and compiler modules
+    working, these variables are still also set here in this place, but they
+    will be reset in CMakeSystemSpecificInformation.cmake before the platform
+    files are executed. */
+  #if defined(_WIN32)
+    this->SetDefinition("WIN32", "1");
+    this->SetDefinition("CMAKE_HOST_WIN32", "1");
+  #else
+    this->SetDefinition("UNIX", "1");
+    this->SetDefinition("CMAKE_HOST_UNIX", "1");
+  #endif
+  #if defined(__CYGWIN__)
+    if(cmSystemTools::IsOn(cmSystemTools::GetEnv("CMAKE_LEGACY_CYGWIN_WIN32")))
+      {
+      this->SetDefinition("WIN32", "1");
+      this->SetDefinition("CMAKE_HOST_WIN32", "1");
+      }
+  #endif
+  #if defined(__APPLE__)
+    this->SetDefinition("APPLE", "1");
+    this->SetDefinition("CMAKE_HOST_APPLE", "1");
+  #endif
+
+    char temp[1024];
+    sprintf(temp, "%d", cmVersion::GetMinorVersion());
+    this->SetDefinition("CMAKE_MINOR_VERSION", temp);
+    sprintf(temp, "%d", cmVersion::GetMajorVersion());
+    this->SetDefinition("CMAKE_MAJOR_VERSION", temp);
+    sprintf(temp, "%d", cmVersion::GetPatchVersion());
+    this->SetDefinition("CMAKE_PATCH_VERSION", temp);
+    sprintf(temp, "%d", cmVersion::GetTweakVersion());
+    this->SetDefinition("CMAKE_TWEAK_VERSION", temp);
+    this->SetDefinition("CMAKE_VERSION",
+                                      cmVersion::GetCMakeVersion());
+
+    this->SetDefinition("CMAKE_FILES_DIRECTORY",
+                        cmake::GetCMakeFilesDirectory());
+
+  // Setup the default include file regular expression (match everything).
+  this->Position->BuildSystemDirectory
+      ->Properties.SetProperty("INCLUDE_REGULAR_EXPRESSION", "^.*$");
+}
+
+void cmState::Snapshot::SetDirectoryDefinitions()
+{
+  this->SetDefinition("CMAKE_SOURCE_DIR",
+                      this->State->GetSourceDirectory());
+  this->SetDefinition("CMAKE_CURRENT_SOURCE_DIR",
+                      this->State->GetSourceDirectory());
+  this->SetDefinition("CMAKE_BINARY_DIR",
+                      this->State->GetBinaryDirectory());
+  this->SetDefinition("CMAKE_CURRENT_BINARY_DIR",
+                      this->State->GetBinaryDirectory());
+}
+
 void cmState::Snapshot::InitializeFromParent()
 {
   PositionType parent = this->Position->DirectoryParent;
@@ -1365,6 +1504,20 @@ void cmState::Snapshot::SetProjectName(const std::string& name)
 std::string cmState::Snapshot::GetProjectName() const
 {
   return this->Position->BuildSystemDirectory->ProjectName;
+}
+
+void cmState::Snapshot::InitializeFromParent_ForSubdirsCommand()
+{
+  std::string currentSrcDir = this->GetDefinition("CMAKE_CURRENT_SOURCE_DIR");
+  std::string currentBinDir = this->GetDefinition("CMAKE_CURRENT_BINARY_DIR");
+  this->InitializeFromParent();
+  this->SetDefinition("CMAKE_SOURCE_DIR",
+                      this->State->GetSourceDirectory());
+  this->SetDefinition("CMAKE_BINARY_DIR",
+                      this->State->GetBinaryDirectory());
+
+  this->SetDefinition("CMAKE_CURRENT_SOURCE_DIR", currentSrcDir.c_str());
+  this->SetDefinition("CMAKE_CURRENT_BINARY_DIR", currentBinDir.c_str());
 }
 
 cmState::Directory::Directory(
@@ -1770,4 +1923,88 @@ bool operator==(const cmState::Snapshot& lhs, const cmState::Snapshot& rhs)
 bool operator!=(const cmState::Snapshot& lhs, const cmState::Snapshot& rhs)
 {
   return lhs.Position != rhs.Position;
+}
+
+static bool ParseEntryWithoutType(const std::string& entry,
+                                  std::string& var,
+                                  std::string& value)
+{
+  // input line is:         key=value
+  static cmsys::RegularExpression reg(
+    "^([^=]*)=(.*[^\r\t ]|[\r\t ]*)[\r\t ]*$");
+  // input line is:         "key"=value
+  static cmsys::RegularExpression regQuoted(
+    "^\"([^\"]*)\"=(.*[^\r\t ]|[\r\t ]*)[\r\t ]*$");
+  bool flag = false;
+  if(regQuoted.find(entry))
+    {
+    var = regQuoted.match(1);
+    value = regQuoted.match(2);
+    flag = true;
+    }
+  else if (reg.find(entry))
+    {
+    var = reg.match(1);
+    value = reg.match(2);
+    flag = true;
+    }
+
+  // if value is enclosed in single quotes ('foo') then remove them
+  // it is used to enclose trailing space or tab
+  if (flag &&
+      value.size() >= 2 &&
+      value[0] == '\'' &&
+      value[value.size() - 1] == '\'')
+    {
+    value = value.substr(1,
+                         value.size() - 2);
+    }
+
+  return flag;
+}
+
+bool cmState::ParseCacheEntry(const std::string& entry,
+                                std::string& var,
+                                std::string& value,
+                                CacheEntryType& type)
+{
+  // input line is:         key:type=value
+  static cmsys::RegularExpression reg(
+    "^([^=:]*):([^=]*)=(.*[^\r\t ]|[\r\t ]*)[\r\t ]*$");
+  // input line is:         "key":type=value
+  static cmsys::RegularExpression regQuoted(
+    "^\"([^\"]*)\":([^=]*)=(.*[^\r\t ]|[\r\t ]*)[\r\t ]*$");
+  bool flag = false;
+  if(regQuoted.find(entry))
+    {
+    var = regQuoted.match(1);
+    type = cmState::StringToCacheEntryType(regQuoted.match(2).c_str());
+    value = regQuoted.match(3);
+    flag = true;
+    }
+  else if (reg.find(entry))
+    {
+    var = reg.match(1);
+    type = cmState::StringToCacheEntryType(reg.match(2).c_str());
+    value = reg.match(3);
+    flag = true;
+    }
+
+  // if value is enclosed in single quotes ('foo') then remove them
+  // it is used to enclose trailing space or tab
+  if (flag &&
+      value.size() >= 2 &&
+      value[0] == '\'' &&
+      value[value.size() - 1] == '\'')
+    {
+    value = value.substr(1,
+                         value.size() - 2);
+    }
+
+  if (!flag)
+    {
+    return ParseEntryWithoutType(entry, var, value);
+    }
+
+  return flag;
 }

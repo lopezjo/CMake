@@ -18,32 +18,35 @@
 #include <map>
 #include <string>
 
-class cmTarget;
+class cmGeneratorTarget;
+class cmLocalGenerator;
 
 //----------------------------------------------------------------------------
 struct cmGeneratorExpressionContext
 {
-  cmGeneratorExpressionContext(cmMakefile* mf, std::string const& config,
-                               bool quiet, cmTarget const* headTarget,
-                               cmTarget const* currentTarget,
+  cmGeneratorExpressionContext(cmLocalGenerator* lg, std::string const& config,
+                               bool quiet, const cmGeneratorTarget* headTarget,
+                               cmGeneratorTarget const* currentTarget,
                                bool evaluateForBuildsystem,
                                cmListFileBacktrace const& backtrace,
                                std::string const& language);
 
 
   cmListFileBacktrace Backtrace;
-  std::set<cmTarget*> DependTargets;
-  std::set<cmTarget const*> AllTargets;
+  std::set<cmGeneratorTarget*> DependTargets;
+  std::set<cmGeneratorTarget const*> AllTargets;
   std::set<std::string> SeenTargetProperties;
-  std::set<cmTarget const*> SourceSensitiveTargets;
-  std::map<cmTarget const*, std::map<std::string, std::string> >
+  std::set<cmGeneratorTarget const*> SourceSensitiveTargets;
+  std::map<cmGeneratorTarget const*, std::map<std::string, std::string> >
                                                           MaxLanguageStandard;
-  cmMakefile *Makefile;
+  cmLocalGenerator *LG;
   std::string Config;
   std::string Language;
-  cmTarget const* HeadTarget; // The target whose property is being evaluated.
-  cmTarget const* CurrentTarget; // The dependent of HeadTarget which appears
-                                 // directly or indirectly in the property.
+  // The target whose property is being evaluated.
+  cmGeneratorTarget const* HeadTarget;
+  // The dependent of HeadTarget which appears
+  // directly or indirectly in the property.
+  cmGeneratorTarget const* CurrentTarget;
   bool Quiet;
   bool HadError;
   bool HadContextSensitiveCondition;

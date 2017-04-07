@@ -17,7 +17,6 @@
 #include "cmake.h"
 #include "cmSourceFile.h"
 #include "cmGeneratedFileStream.h"
-#include "cmTarget.h"
 #include "cmSystemTools.h"
 
 #include <cmsys/SystemTools.hxx>
@@ -46,21 +45,22 @@ cmExtraKateGenerator::cmExtraKateGenerator()
 
 void cmExtraKateGenerator::Generate()
 {
-  const cmMakefile* mf
-     = this->GlobalGenerator->GetLocalGenerators()[0]->GetMakefile();
-  this->ProjectName = this->GenerateProjectName(mf->GetProjectName(),
+  cmLocalGenerator* lg = this->GlobalGenerator->GetLocalGenerators()[0];
+  const cmMakefile* mf = lg->GetMakefile();
+  this->ProjectName = this->GenerateProjectName(lg->GetProjectName(),
                           mf->GetSafeDefinition("CMAKE_BUILD_TYPE"),
-                          this->GetPathBasename(mf->GetHomeOutputDirectory()));
+                          this->GetPathBasename(lg->GetBinaryDirectory()));
   this->UseNinja = (this->GlobalGenerator->GetName() == "Ninja");
 
-  this->CreateKateProjectFile(mf);
-  this->CreateDummyKateProjectFile(mf);
+  this->CreateKateProjectFile(lg);
+  this->CreateDummyKateProjectFile(lg);
 }
 
 
-void cmExtraKateGenerator::CreateKateProjectFile(const cmMakefile* mf) const
+void cmExtraKateGenerator::CreateKateProjectFile(
+    const cmLocalGenerator* lg) const
 {
-  std::string filename = mf->GetHomeOutputDirectory();
+  std::string filename = lg->GetBinaryDirectory();
   filename += "/.kateproject";
   cmGeneratedFileStream fout(filename.c_str());
   if (!fout)
@@ -68,31 +68,29 @@ void cmExtraKateGenerator::CreateKateProjectFile(const cmMakefile* mf) const
     return;
     }
 
-  std::string make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
-  std::string args = mf->GetSafeDefinition("CMAKE_KATE_MAKE_ARGUMENTS");
-
   fout <<
     "{\n"
     "\t\"name\": \"" << this->ProjectName << "\",\n"
-    "\t\"directory\": \"" << mf->GetHomeDirectory() << "\",\n"
-    "\t\"files\": [ { " << this->GenerateFilesString(mf) << "} ],\n";
-  this->WriteTargets(mf, fout);
+    "\t\"directory\": \"" << lg->GetSourceDirectory() << "\",\n"
+    "\t\"files\": [ { " << this->GenerateFilesString(lg) << "} ],\n";
+  this->WriteTargets(lg, fout);
   fout << "}\n";
 }
 
 
 void
-cmExtraKateGenerator::WriteTargets(const cmMakefile* mf,
+cmExtraKateGenerator::WriteTargets(const cmLocalGenerator* lg,
                                    cmGeneratedFileStream& fout) const
 {
+  cmMakefile const* mf = lg->GetMakefile();
   const std::string make = mf->GetRequiredDefinition("CMAKE_MAKE_PROGRAM");
   const std::string makeArgs = mf->GetSafeDefinition(
     "CMAKE_KATE_MAKE_ARGUMENTS");
-  const char* homeOutputDir = mf->GetHomeOutputDirectory();
+  const char* homeOutputDir = lg->GetBinaryDirectory();
 
   fout <<
   "\t\"build\": {\n"
-  "\t\t\"directory\": \"" << mf->GetHomeOutputDirectory() << "\",\n"
+  "\t\t\"directory\": \"" << lg->GetBinaryDirectory() << "\",\n"
   "\t\t\"default_target\": \"all\",\n"
   "\t\t\"clean_target\": \"clean\",\n";
 
@@ -120,16 +118,18 @@ cmExtraKateGenerator::WriteTargets(const cmMakefile* mf,
        it != this->GlobalGenerator->GetLocalGenerators().end();
        ++it)
     {
-    const cmTargets& targets = (*it)->GetMakefile()->GetTargets();
-    cmMakefile* makefile=(*it)->GetMakefile();
-    std::string currentDir = makefile->GetCurrentBinaryDirectory();
-    bool topLevel = (currentDir == makefile->GetHomeOutputDirectory());
+    const std::vector<cmGeneratorTarget*> targets =
+        (*it)->GetGeneratorTargets();
+    std::string currentDir = (*it)->GetCurrentBinaryDirectory();
+    bool topLevel = (currentDir == (*it)->GetBinaryDirectory());
 
-    for(cmTargets::const_iterator ti=targets.begin(); ti!=targets.end(); ++ti)
+    for(std::vector<cmGeneratorTarget*>::const_iterator ti =
+        targets.begin(); ti!=targets.end(); ++ti)
       {
-      switch(ti->second.GetType())
+      std::string targetName = (*ti)->GetName();
+      switch((*ti)->GetType())
         {
-        case cmTarget::GLOBAL_TARGET:
+        case cmState::GLOBAL_TARGET:
           {
           bool insertTarget = false;
           // Only add the global targets from CMAKE_BINARY_DIR,
@@ -139,9 +139,9 @@ cmExtraKateGenerator::WriteTargets(const cmMakefile* mf,
             insertTarget = true;
             // only add the "edit_cache" target if it's not ccmake, because
             // this will not work within the IDE
-            if (ti->first == "edit_cache")
+            if (targetName == "edit_cache")
               {
-              const char* editCommand = makefile->GetDefinition
+              const char* editCommand = (*it)->GetMakefile()->GetDefinition
               ("CMAKE_EDIT_COMMAND");
               if (editCommand == 0)
                 {
@@ -155,34 +155,35 @@ cmExtraKateGenerator::WriteTargets(const cmMakefile* mf,
             }
           if (insertTarget)
             {
-            this->AppendTarget(fout, ti->first, make, makeArgs,
+            this->AppendTarget(fout, targetName, make, makeArgs,
                                currentDir, homeOutputDir);
             }
         }
         break;
-        case cmTarget::UTILITY:
+        case cmState::UTILITY:
           // Add all utility targets, except the Nightly/Continuous/
           // Experimental-"sub"targets as e.g. NightlyStart
-          if (((ti->first.find("Nightly")==0)   &&(ti->first!="Nightly"))
-            || ((ti->first.find("Continuous")==0)&&(ti->first!="Continuous"))
-            || ((ti->first.find("Experimental")==0)
-            && (ti->first!="Experimental")))
+          if (((targetName.find("Nightly")==0)   &&(targetName!="Nightly"))
+            || ((targetName.find("Continuous")==0)
+                &&(targetName!="Continuous"))
+            || ((targetName.find("Experimental")==0)
+            && (targetName!="Experimental")))
             {
               break;
             }
 
-            this->AppendTarget(fout, ti->first, make, makeArgs,
+            this->AppendTarget(fout, targetName, make, makeArgs,
                                currentDir, homeOutputDir);
           break;
-        case cmTarget::EXECUTABLE:
-        case cmTarget::STATIC_LIBRARY:
-        case cmTarget::SHARED_LIBRARY:
-        case cmTarget::MODULE_LIBRARY:
-        case cmTarget::OBJECT_LIBRARY:
+        case cmState::EXECUTABLE:
+        case cmState::STATIC_LIBRARY:
+        case cmState::SHARED_LIBRARY:
+        case cmState::MODULE_LIBRARY:
+        case cmState::OBJECT_LIBRARY:
         {
-          this->AppendTarget(fout, ti->first, make, makeArgs,
+          this->AppendTarget(fout, targetName, make, makeArgs,
                              currentDir, homeOutputDir);
-          std::string fastTarget = ti->first;
+          std::string fastTarget = targetName;
           fastTarget += "/fast";
           this->AppendTarget(fout, fastTarget, make, makeArgs,
                              currentDir, homeOutputDir);
@@ -234,9 +235,10 @@ cmExtraKateGenerator::AppendTarget(cmGeneratedFileStream& fout,
 
 
 void
-cmExtraKateGenerator::CreateDummyKateProjectFile(const cmMakefile* mf) const
+cmExtraKateGenerator::CreateDummyKateProjectFile(
+    const cmLocalGenerator* lg) const
 {
-  std::string filename = mf->GetHomeOutputDirectory();
+  std::string filename = lg->GetBinaryDirectory();
   filename += "/";
   filename += this->ProjectName;
   filename += ".kateproject";
@@ -252,23 +254,23 @@ cmExtraKateGenerator::CreateDummyKateProjectFile(const cmMakefile* mf) const
 
 
 std::string
-cmExtraKateGenerator::GenerateFilesString(const cmMakefile* mf) const
+cmExtraKateGenerator::GenerateFilesString(const cmLocalGenerator* lg) const
 {
-  std::string s = mf->GetHomeDirectory();
+  std::string s = lg->GetSourceDirectory();
   s += "/.git";
   if(cmSystemTools::FileExists(s.c_str()))
   {
     return std::string("\"git\": 1 ");
   }
 
-  s = mf->GetHomeDirectory();
+  s = lg->GetSourceDirectory();
   s += "/.svn";
   if(cmSystemTools::FileExists(s.c_str()))
   {
     return std::string("\"svn\": 1 ");
   }
 
-  s = mf->GetHomeDirectory();
+  s = lg->GetSourceDirectory();
   s += "/";
 
   std::set<std::string> files;

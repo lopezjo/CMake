@@ -185,7 +185,9 @@ cmComputeLinkDepends
   // The configuration being linked.
   this->HasConfig = !config.empty();
   this->Config = (this->HasConfig)? config : std::string();
-  this->LinkType = this->Target->Target->ComputeLinkType(this->Config);
+  std::vector<std::string> debugConfigs =
+    this->Makefile->GetCMakeInstance()->GetDebugConfigs();
+  this->LinkType = CMP0003_ComputeLinkType(this->Config, debugConfigs);
 
   // Enable debug mode if requested.
   this->DebugMode = this->Makefile->IsOn("CMAKE_LINK_DEPENDS_DEBUG_MODE");
@@ -268,9 +270,9 @@ cmComputeLinkDepends::Compute()
     {
     int i = *li;
     LinkEntry const& e = this->EntryList[i];
-    cmTarget const* t = e.Target;
+    cmGeneratorTarget const* t = e.Target;
     // Entries that we know the linker will re-use do not need to be repeated.
-    bool uniquify = t && t->GetType() == cmTarget::SHARED_LIBRARY;
+    bool uniquify = t && t->GetType() == cmState::SHARED_LIBRARY;
     if(!uniquify || emmitted.insert(i).second)
       {
       this->FinalLinkEntries.push_back(e);
@@ -362,14 +364,12 @@ void cmComputeLinkDepends::FollowLinkEntry(BFSEntry const& qe)
   // Follow the item's dependencies.
   if(entry.Target)
     {
-    cmGeneratorTarget* gtgt =
-        this->GlobalGenerator->GetGeneratorTarget(entry.Target);
     // Follow the target dependencies.
     if(cmLinkInterface const* iface =
-       gtgt->GetLinkInterface(this->Config, this->Target->Target))
+       entry.Target->GetLinkInterface(this->Config, this->Target))
       {
       const bool isIface =
-                      entry.Target->GetType() == cmTarget::INTERFACE_LIBRARY;
+                      entry.Target->GetType() == cmState::INTERFACE_LIBRARY;
       // This target provides its own link interface information.
       this->AddLinkEntries(depender_index, iface->Libraries);
 
@@ -463,10 +463,8 @@ void cmComputeLinkDepends::HandleSharedDependency(SharedDepEntry const& dep)
   // Target items may have their own dependencies.
   if(entry.Target)
     {
-    cmGeneratorTarget* gtgt =
-        this->GlobalGenerator->GetGeneratorTarget(entry.Target);
     if(cmLinkInterface const* iface =
-       gtgt->GetLinkInterface(this->Config, this->Target->Target))
+       entry.Target->GetLinkInterface(this->Config, this->Target))
       {
       // Follow public and private dependencies transitively.
       this->FollowSharedDeps(index, iface, true);
@@ -486,24 +484,24 @@ void cmComputeLinkDepends::AddVarLinkEntries(int depender_index,
 
   // Look for entries meant for this configuration.
   std::vector<cmLinkItem> actual_libs;
-  cmTarget::LinkLibraryType llt = cmTarget::GENERAL;
+  cmTargetLinkLibraryType llt = GENERAL_LibraryType;
   bool haveLLT = false;
   for(std::vector<std::string>::const_iterator di = deplist.begin();
       di != deplist.end(); ++di)
     {
     if(*di == "debug")
       {
-      llt = cmTarget::DEBUG;
+      llt = DEBUG_LibraryType;
       haveLLT = true;
       }
     else if(*di == "optimized")
       {
-      llt = cmTarget::OPTIMIZED;
+      llt = OPTIMIZED_LibraryType;
       haveLLT = true;
       }
     else if(*di == "general")
       {
-      llt = cmTarget::GENERAL;
+      llt = GENERAL_LibraryType;
       haveLLT = true;
       }
     else if(!di->empty())
@@ -521,17 +519,17 @@ void cmComputeLinkDepends::AddVarLinkEntries(int depender_index,
           {
           if(strcmp(val, "debug") == 0)
             {
-            llt = cmTarget::DEBUG;
+            llt = DEBUG_LibraryType;
             }
           else if(strcmp(val, "optimized") == 0)
             {
-            llt = cmTarget::OPTIMIZED;
+            llt = OPTIMIZED_LibraryType;
             }
           }
         }
 
       // If the library is meant for this link type then use it.
-      if(llt == cmTarget::GENERAL || llt == this->LinkType)
+      if(llt == GENERAL_LibraryType || llt == this->LinkType)
         {
         cmLinkItem item(*di, this->FindTargetToLink(depender_index, *di));
         actual_libs.push_back(item);
@@ -543,7 +541,7 @@ void cmComputeLinkDepends::AddVarLinkEntries(int depender_index,
         }
 
       // Reset the link type until another explicit type is given.
-      llt = cmTarget::GENERAL;
+      llt = GENERAL_LibraryType;
       haveLLT = false;
       }
     }
@@ -635,14 +633,16 @@ cmComputeLinkDepends::AddLinkEntries(
 }
 
 //----------------------------------------------------------------------------
-cmTarget const* cmComputeLinkDepends::FindTargetToLink(int depender_index,
-                                                 const std::string& name)
+cmGeneratorTarget const*
+cmComputeLinkDepends::FindTargetToLink(int depender_index,
+                                       const std::string& name)
 {
   // Look for a target in the scope of the depender.
-  cmTarget const* from = this->Target->Target;
+  cmGeneratorTarget const* from = this->Target;
   if(depender_index >= 0)
     {
-    if(cmTarget const* depender = this->EntryList[depender_index].Target)
+    if(cmGeneratorTarget const* depender =
+       this->EntryList[depender_index].Target)
       {
       from = depender;
       }
@@ -934,12 +934,10 @@ int cmComputeLinkDepends::ComputeComponentCount(NodeList const& nl)
   int count = 2;
   for(NodeList::const_iterator ni = nl.begin(); ni != nl.end(); ++ni)
     {
-    if(cmTarget const* target = this->EntryList[*ni].Target)
+    if(cmGeneratorTarget const* target = this->EntryList[*ni].Target)
       {
-      cmGeneratorTarget* gtgt =
-          this->GlobalGenerator->GetGeneratorTarget(target);
       if(cmLinkInterface const* iface =
-         gtgt->GetLinkInterface(this->Config, this->Target->Target))
+         target->GetLinkInterface(this->Config, this->Target))
         {
         if(iface->Multiplicity > count)
           {

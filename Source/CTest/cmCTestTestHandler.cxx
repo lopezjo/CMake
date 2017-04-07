@@ -24,7 +24,6 @@
 #include <cmsys/FStream.hxx>
 #include "cmMakefile.h"
 #include "cmGlobalGenerator.h"
-#include "cmLocalGenerator.h"
 #include "cmCommand.h"
 #include "cmSystemTools.h"
 #include "cmXMLWriter.h"
@@ -580,7 +579,7 @@ int cmCTestTestHandler::ProcessHandler()
       }
 
     cmCTestLog(this->CTest, HANDLER_OUTPUT, std::endl
-               << static_cast<int>(percent + .5) << "% tests passed, "
+               << static_cast<int>(percent + .5f) << "% tests passed, "
                << failed.size() << " tests failed out of "
                << total << std::endl);
     if(this->CTest->GetLabelSummary())
@@ -610,11 +609,11 @@ int cmCTestTestHandler::ProcessHandler()
         if ( ftit->Status != cmCTestTestHandler::COMPLETED )
           {
           ofs << ftit->TestCount << ":" << ftit->Name << std::endl;
-          cmCTestOptionalLog(this->CTest, HANDLER_OUTPUT, "\t" << std::setw(3)
+          cmCTestLog(this->CTest, HANDLER_OUTPUT, "\t" << std::setw(3)
                      << ftit->TestCount << " - "
                      << ftit->Name << " ("
                      << this->GetTestStatus(ftit->Status) << ")"
-                     << std::endl, this->Quiet);
+                     << std::endl);
           }
         }
       }
@@ -1591,10 +1590,9 @@ void cmCTestTestHandler::GetListOfTests()
   cmake cm;
   cm.SetHomeDirectory("");
   cm.SetHomeOutputDirectory("");
+  cm.GetCurrentSnapshot().SetDefaultDefinitions();
   cmGlobalGenerator gg(&cm);
   cmsys::auto_ptr<cmMakefile> mf(new cmMakefile(&gg, cm.GetCurrentSnapshot()));
-  cmsys::auto_ptr<cmLocalGenerator> lg(
-        gg.CreateLocalGenerator(mf.get()));
   mf->AddDefinition("CTEST_CONFIGURATION_TYPE",
     this->CTest->GetConfigType().c_str());
 

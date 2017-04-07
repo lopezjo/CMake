@@ -31,7 +31,7 @@
 #endif
 
 // Provide fixed-size integer types.
-#include <cmIML/INT.h>
+#include <cm_kwiml.h>
 
 #include <fstream>
 #include <iostream>
@@ -124,5 +124,11 @@ static thisClass* SafeDownCast(cmObject *c) \
   return 0;\
 } \
 class cmTypeMacro_UseTrailingSemicolon
+
+enum cmTargetLinkLibraryType {
+  GENERAL_LibraryType,
+  DEBUG_LibraryType,
+  OPTIMIZED_LibraryType
+};
 
 #endif

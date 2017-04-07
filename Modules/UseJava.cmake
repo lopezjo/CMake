@@ -184,7 +184,7 @@
 #                       This is used by install_jni_symlink().
 #    JAR_FILE           The location of the jar file so that you can include
 #                       it.
-#    CLASS_DIR          The directory where the class files can be found. For
+#    CLASSDIR           The directory where the class files can be found. For
 #                       example to use them with javah.
 #
 # ::
@@ -444,7 +444,7 @@ function(add_jar _TARGET_NAME)
 
     if (_add_jar_MANIFEST)
         set(_MANIFEST_OPTION m)
-        set(_MANIFEST_VALUE ${_add_jar_MANIFEST})
+        get_filename_component (_MANIFEST_VALUE "${_add_jar_MANIFEST}" ABSOLUTE)
     endif ()
 
     if (LIBRARY_OUTPUT_PATH)
@@ -1212,7 +1212,7 @@ function (create_javah)
 
     set (_output_files)
     if (WIN32 AND NOT CYGWIN AND CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
-      set(_classpath_sep ";")
+      set(_classpath_sep "$<SEMICOLON>")
     else ()
       set(_classpath_sep ":")
     endif()
@@ -1242,7 +1242,7 @@ function (create_javah)
         endif()
       endforeach()
       string (REPLACE ";" "${_classpath_sep}" _classpath "${_classpath}")
-      list (APPEND _javah_options -classpath ${_classpath})
+      list (APPEND _javah_options -classpath "${_classpath}")
     endif()
 
     if (_create_javah_OUTPUT_DIR)

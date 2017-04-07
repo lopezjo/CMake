@@ -20,10 +20,18 @@ cmWIXPatch::cmWIXPatch(cmCPackLog* logger):
 
 }
 
-void cmWIXPatch::LoadFragments(std::string const& patchFilePath)
+bool cmWIXPatch::LoadFragments(std::string const& patchFilePath)
 {
   cmWIXPatchParser parser(Fragments, Logger);
-  parser.ParseFile(patchFilePath.c_str());
+  if(!parser.ParseFile(patchFilePath.c_str()))
+    {
+    cmCPackLogger(cmCPackLog::LOG_ERROR,
+      "Failed parsing XML patch file: '" <<
+      patchFilePath << "'" << std::endl);
+    return false;
+    }
+
+  return true;
 }
 
 void cmWIXPatch::ApplyFragment(
@@ -33,13 +41,30 @@ void cmWIXPatch::ApplyFragment(
   if(i == Fragments.end()) return;
 
   const cmWIXPatchElement& fragment = i->second;
-  for(cmWIXPatchElement::child_list_t::const_iterator
-    j = fragment.children.begin(); j != fragment.children.end(); ++j)
-    {
-    ApplyElement(**j, writer);
-    }
+
+  this->ApplyElementChildren(fragment, writer);
 
   Fragments.erase(i);
+}
+
+void cmWIXPatch::ApplyElementChildren(
+  const cmWIXPatchElement& element, cmWIXSourceWriter& writer)
+{
+  for(cmWIXPatchElement::child_list_t::const_iterator
+    j = element.children.begin(); j != element.children.end(); ++j)
+  {
+  cmWIXPatchNode *node = *j;
+
+  switch(node->type())
+    {
+    case cmWIXPatchNode::ELEMENT:
+      ApplyElement(dynamic_cast<const cmWIXPatchElement&>(*node), writer);
+      break;
+    case cmWIXPatchNode::TEXT:
+      writer.AddTextNode(dynamic_cast<const cmWIXPatchText&>(*node).text);
+      break;
+    }
+  }
 }
 
 void cmWIXPatch::ApplyElement(
@@ -53,15 +78,10 @@ void cmWIXPatch::ApplyElement(
     writer.AddAttribute(i->first, i->second);
     }
 
-  for(cmWIXPatchElement::child_list_t::const_iterator
-    i = element.children.begin(); i != element.children.end(); ++i)
-    {
-    ApplyElement(**i, writer);
-    }
+  this->ApplyElementChildren(element, writer);
 
   writer.EndElement(element.name);
 }
-
 
 bool cmWIXPatch::CheckForUnappliedFragments()
 {

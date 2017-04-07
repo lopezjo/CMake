@@ -64,6 +64,12 @@ public:
     return cmGlobalUnixMakefileGenerator3::GetActualName();}
   static std::string GetActualName() {return "Unix Makefiles";}
 
+  /**
+   * Utilized by the generator factory to determine if this generator
+   * supports toolsets.
+   */
+  static bool SupportsToolset() { return false; }
+
   /** Get the documentation entry for this generator.  */
   static void GetDocumentation(cmDocumentationEntry& entry);
 
@@ -154,7 +160,7 @@ protected:
                                  cmGeneratorTarget* target);
 
   // does this generator need a requires step for any of its targets
-  bool NeedRequiresStep(cmTarget const&);
+  bool NeedRequiresStep(cmGeneratorTarget const*);
 
   // Target name hooks for superclass.
   const char* GetAllTargetName()           const { return "all"; }
@@ -192,13 +198,13 @@ protected:
     std::vector<unsigned long> Marks;
     void WriteProgressVariables(unsigned long total, unsigned long& current);
   };
-  typedef std::map<cmTarget const*, TargetProgress,
-                   cmStrictTargetComparison> ProgressMapType;
+  typedef std::map<cmGeneratorTarget const*, TargetProgress,
+                   cmGeneratorTarget::StrictTargetComparison> ProgressMapType;
   ProgressMapType ProgressMap;
 
   size_t CountProgressMarksInTarget(cmGeneratorTarget const* target,
                                  std::set<cmGeneratorTarget const*>& emitted);
-  size_t CountProgressMarksInAll(cmLocalUnixMakefileGenerator3* lg);
+  size_t CountProgressMarksInAll(cmLocalGenerator* lg);
 
   cmGeneratedFileStream *CommandDatabase;
 private:

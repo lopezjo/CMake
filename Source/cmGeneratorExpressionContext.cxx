@@ -11,16 +11,17 @@
 ============================================================================*/
 
 #include "cmGeneratorExpressionContext.h"
+#include "cmGeneratorTarget.h"
 
 cmGeneratorExpressionContext::cmGeneratorExpressionContext(
-      cmMakefile* mf, std::string const& config,
-      bool quiet, cmTarget const* headTarget,
-      cmTarget const* currentTarget,
+      cmLocalGenerator* lg, std::string const& config,
+      bool quiet, cmGeneratorTarget const* headTarget,
+      const cmGeneratorTarget* currentTarget,
       bool evaluateForBuildsystem,
       cmListFileBacktrace const& backtrace,
       std::string const& language)
   : Backtrace(backtrace),
-    Makefile(mf),
+    LG(lg),
     Config(config),
     Language(language),
     HeadTarget(headTarget),

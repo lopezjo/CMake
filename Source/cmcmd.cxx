@@ -35,8 +35,7 @@
 
 #include <stdlib.h> // required for atoi
 #if defined(_WIN32) && defined(CMAKE_BUILD_WITH_CMAKE)
-// defined in binexplib.cxx
-bool DumpFile(const char* filename, FILE *fout);
+#include "bindexplib.h"
 #endif
 
 void CMakeCommandUsage(const char* program)
@@ -53,25 +52,25 @@ void CMakeCommandUsage(const char* program)
   // If you add new commands, change here,
   // and in cmakemain.cxx in the options table
   errorStream
-    << "Usage: " << program << " -E [command] [arguments ...]\n"
+    << "Usage: " << program << " -E <command> [arguments...]\n"
     << "Available commands: \n"
-    << "  chdir dir cmd [args]...   - run command in a given directory\n"
+    << "  chdir dir cmd [args...]   - run command in a given directory\n"
     << "  compare_files file1 file2 - check if file1 is same as file2\n"
-    << "  copy file destination     - copy file to destination (either file "
-       "or directory)\n"
-    << "  copy_directory source destination   - copy directory 'source' "
-       "content to directory 'destination'\n"
-    << "  copy_if_different in-file out-file  - copy file if input has "
+    << "  copy <file>... destination  - copy files to destination "
+       "(either file or directory)\n"
+    << "  copy_directory <dir>... destination   - copy content of <dir>... "
+       "directories to 'destination' directory\n"
+    << "  copy_if_different <file>... destination  - copy files if it has "
        "changed\n"
-    << "  echo [string]...          - displays arguments as text\n"
-    << "  echo_append [string]...   - displays arguments as text but no new "
+    << "  echo [<string>...]        - displays arguments as text\n"
+    << "  echo_append [<string>...] - displays arguments as text but no new "
        "line\n"
     << "  env [--unset=NAME]... [NAME=VALUE]... COMMAND [ARG]...\n"
     << "                            - run command in a modified environment\n"
     << "  environment               - display the current environment\n"
-    << "  make_directory dir        - create a directory\n"
-    << "  md5sum file1 [...]        - compute md5sum of files\n"
-    << "  remove [-f] file1 file2 ... - remove the file(s), use -f to force "
+    << "  make_directory <dir>...   - create parent and <dir> directories\n"
+    << "  md5sum <file>...          - compute md5sum of files\n"
+    << "  remove [-f] <file>...     - remove the file(s), use -f to force "
        "it\n"
     << "  remove_directory dir      - remove a directory and its contents\n"
     << "  rename oldname newname    - rename a file or directory "
@@ -79,7 +78,7 @@ void CMakeCommandUsage(const char* program)
     << "  tar [cxt][vf][zjJ] file.tar [file/dir1 file/dir2 ...]\n"
     << "                            - create or extract a tar or zip archive\n"
     << "  sleep <number>...         - sleep for given number of seconds\n"
-    << "  time command [args] ...   - run command and return elapsed time\n"
+    << "  time command [args...]    - run command and return elapsed time\n"
     << "  touch file                - touch a file.\n"
     << "  touch_nocreate file       - touch a file but do not create it.\n"
 #if defined(_WIN32) && !defined(__CYGWIN__)
@@ -150,42 +149,79 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
   if (args.size() > 1)
     {
     // Copy file
-    if (args[1] == "copy" && args.size() == 4)
+    if (args[1] == "copy" && args.size() > 3)
       {
-      if(!cmSystemTools::cmCopyFile(args[2].c_str(), args[3].c_str()))
+      // If multiple source files specified,
+      // then destination must be directory
+      if ((args.size() > 4) &&
+          (!cmSystemTools::FileIsDirectory(args[args.size() - 1])))
         {
-        std::cerr << "Error copying file \"" << args[2]
-                  << "\" to \"" << args[3] << "\".\n";
+        std::cerr << "Error: Target (for copy command) \""
+                  << args[args.size() - 1]
+                  << "\" is not a directory.\n";
         return 1;
         }
-      return 0;
+      // If error occurs we want to continue copying next files.
+      bool return_value = 0;
+      for (std::string::size_type cc = 2; cc < args.size() - 1; cc ++)
+        {
+        if(!cmSystemTools::cmCopyFile(args[cc].c_str(),
+            args[args.size() - 1].c_str()))
+          {
+          std::cerr << "Error copying file \"" << args[cc]
+                    << "\" to \"" << args[args.size() - 1] << "\".\n";
+          return_value = 1;
+          }
+        }
+      return return_value;
       }
 
     // Copy file if different.
-    if (args[1] == "copy_if_different" && args.size() == 4)
+    if (args[1] == "copy_if_different" && args.size() > 3)
       {
-      if(!cmSystemTools::CopyFileIfDifferent(args[2].c_str(),
-          args[3].c_str()))
+      // If multiple source files specified,
+      // then destination must be directory
+      if ((args.size() > 4) &&
+          (!cmSystemTools::FileIsDirectory(args[args.size() - 1])))
         {
-        std::cerr << "Error copying file (if different) from \""
-                  << args[2] << "\" to \"" << args[3]
-                  << "\".\n";
+        std::cerr << "Error: Target (for copy_if_different command) \""
+                  << args[args.size() - 1]
+                  << "\" is not a directory.\n";
         return 1;
         }
-      return 0;
+      // If error occurs we want to continue copying next files.
+      bool return_value = 0;
+      for (std::string::size_type cc = 2; cc < args.size() - 1; cc ++)
+        {
+        if(!cmSystemTools::CopyFileIfDifferent(args[cc].c_str(),
+            args[args.size() - 1].c_str()))
+          {
+          std::cerr << "Error copying file (if different) from \""
+                    << args[cc] << "\" to \"" << args[args.size() - 1]
+                    << "\".\n";
+          return_value = 1;
+          }
+        }
+      return return_value;
       }
 
     // Copy directory content
-    if (args[1] == "copy_directory" && args.size() == 4)
+    if (args[1] == "copy_directory" && args.size() > 3)
       {
-      if(!cmSystemTools::CopyADirectory(args[2], args[3]))
+      // If error occurs we want to continue copying next files.
+      bool return_value = 0;
+      for (std::string::size_type cc = 2; cc < args.size() - 1; cc ++)
         {
-        std::cerr << "Error copying directory from \""
-                  << args[2] << "\" to \"" << args[3]
-                  << "\".\n";
-        return 1;
+        if(!cmSystemTools::CopyADirectory(args[cc].c_str(),
+            args[args.size() - 1].c_str()))
+          {
+          std::cerr << "Error copying directory from \""
+                    << args[cc] << "\" to \"" << args[args.size() - 1]
+                    << "\".\n";
+          return_value = 1;
+          }
         }
-      return 0;
+      return return_value;
       }
 
     // Rename a file or directory
@@ -240,13 +276,16 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
         return 1;
         }
       std::string objfile;
+      bindexplib deffile;
       while(cmSystemTools::GetLineFromStream(fin, objfile))
         {
-        if (!DumpFile(objfile.c_str(), fout))
+        if( !deffile.AddObjectFile(objfile.c_str()))
           {
           return 1;
           }
         }
+      deffile.WriteFile(fout);
+      fclose(fout);
       return 0;
       }
 #endif
@@ -322,11 +361,10 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
         }
 
       // Now run the real compiler command and return its result value.
-      if(!cmSystemTools::RunSingleCommand(orig_cmd, 0, &stdErr, &ret, 0,
+      if(!cmSystemTools::RunSingleCommand(orig_cmd, 0, 0, &ret, 0,
                                           cmSystemTools::OUTPUT_PASSTHROUGH))
         {
-        std::cerr << "Error running '" << orig_cmd[0] << "': "
-                  << stdErr << "\n";
+        std::cerr << "Error running '" << orig_cmd[0] << "'\n";
         return 1;
         }
       return ret;
@@ -408,15 +446,20 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
       }
 #endif
 
-    else if (args[1] == "make_directory" && args.size() == 3)
+    else if (args[1] == "make_directory" && args.size() > 2)
       {
-      if(!cmSystemTools::MakeDirectory(args[2].c_str()))
+      // If error occurs we want to continue copying next files.
+      bool return_value = 0;
+      for (std::string::size_type cc = 2; cc < args.size(); cc ++)
         {
-        std::cerr << "Error making directory \"" << args[2]
-                  << "\".\n";
-        return 1;
+        if(!cmSystemTools::MakeDirectory(args[cc].c_str()))
+          {
+          std::cerr << "Error creating directory \""
+                    << args[cc] << "\".\n";
+          return_value = 1;
+          }
         }
-      return 0;
+      return return_value;
       }
 
     else if (args[1] == "remove_directory" && args.size() == 3)
@@ -511,7 +554,7 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
     // Clock command
     else if (args[1] == "time" && args.size() > 2)
       {
-      std::string command = cmJoin(cmMakeRange(args).advance(2), " ");
+      std::vector<std::string> command(args.begin()+2, args.end());
 
       clock_t clock_start, clock_finish;
       time_t time_start, time_finish;
@@ -519,7 +562,7 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
       time(&time_start);
       clock_start = clock();
       int ret =0;
-      cmSystemTools::RunSingleCommand(command.c_str(), 0, 0, &ret);
+      cmSystemTools::RunSingleCommand(command, 0, 0, &ret);
 
       clock_finish = clock();
       time(&time_finish);
@@ -577,7 +620,7 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
       int retval = 0;
       int timeout = 0;
       if ( cmSystemTools::RunSingleCommand(command.c_str(), 0, 0, &retval,
-             directory.c_str(), cmSystemTools::OUTPUT_NORMAL, timeout) )
+             directory.c_str(), cmSystemTools::OUTPUT_PASSTHROUGH, timeout) )
         {
         return retval;
         }
@@ -765,15 +808,16 @@ int cmcmd::ExecuteCMakeCommand(std::vector<std::string>& args)
       startOutDir = cmSystemTools::CollapseFullPath(startOutDir);
       cm.SetHomeDirectory(homeDir);
       cm.SetHomeOutputDirectory(homeOutDir);
+      cm.GetCurrentSnapshot().SetDefaultDefinitions();
       if(cmGlobalGenerator* ggd = cm.CreateGlobalGenerator(gen))
         {
         cm.SetGlobalGenerator(ggd);
         cmState::Snapshot snapshot = cm.GetCurrentSnapshot();
+        snapshot.GetDirectory().SetCurrentBinary(startOutDir);
+        snapshot.GetDirectory().SetCurrentSource(startDir);
         cmsys::auto_ptr<cmMakefile> mf(new cmMakefile(ggd, snapshot));
         cmsys::auto_ptr<cmLocalGenerator> lgd(
               ggd->CreateLocalGenerator(mf.get()));
-        lgd->GetMakefile()->SetCurrentSourceDirectory(startDir);
-        lgd->GetMakefile()->SetCurrentBinaryDirectory(startOutDir);
 
         // Actually scan dependencies.
         return lgd->UpdateDependencies(depInfo.c_str(),

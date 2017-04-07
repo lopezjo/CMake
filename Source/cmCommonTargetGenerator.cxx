@@ -18,7 +18,6 @@
 #include "cmMakefile.h"
 #include "cmSourceFile.h"
 #include "cmSystemTools.h"
-#include "cmTarget.h"
 
 cmCommonTargetGenerator::cmCommonTargetGenerator(
   cmOutputConverter::RelativeRoot wd,
@@ -26,7 +25,6 @@ cmCommonTargetGenerator::cmCommonTargetGenerator(
   )
   : WorkingDirectory(wd)
   , GeneratorTarget(gt)
-  , Target(gt->Target)
   , Makefile(gt->Makefile)
   , LocalGenerator(static_cast<cmLocalCommonGenerator*>(gt->LocalGenerator))
   , GlobalGenerator(static_cast<cmGlobalCommonGenerator*>(
@@ -83,7 +81,7 @@ void cmCommonTargetGenerator::AddFeatureFlags(
 //----------------------------------------------------------------------------
 void cmCommonTargetGenerator::AddModuleDefinitionFlag(std::string& flags)
 {
-  if(this->ModuleDefinitionFile.empty())
+  if(!this->ModuleDefinitionFile)
     {
     return;
     }
@@ -100,7 +98,7 @@ void cmCommonTargetGenerator::AddModuleDefinitionFlag(std::string& flags)
   // vs6's "cl -link" pass it to the linker.
   std::string flag = defFileFlag;
   flag += (this->LocalGenerator->ConvertToLinkReference(
-             this->ModuleDefinitionFile));
+             this->ModuleDefinitionFile->GetFullPath()));
   this->LocalGenerator->AppendFlags(flags, flag);
 }
 
@@ -109,7 +107,7 @@ std::string cmCommonTargetGenerator::ComputeFortranModuleDirectory() const
 {
   std::string mod_dir;
   const char* target_mod_dir =
-    this->Target->GetProperty("Fortran_MODULE_DIRECTORY");
+    this->GeneratorTarget->GetProperty("Fortran_MODULE_DIRECTORY");
   const char* moddir_flag =
     this->Makefile->GetDefinition("CMAKE_Fortran_MODDIR_FLAG");
   if(target_mod_dir && moddir_flag)
@@ -123,7 +121,7 @@ std::string cmCommonTargetGenerator::ComputeFortranModuleDirectory() const
     else
       {
       // Interpret relative to the current output directory.
-      mod_dir = this->Makefile->GetCurrentBinaryDirectory();
+      mod_dir = this->LocalGenerator->GetCurrentBinaryDirectory();
       mod_dir += "/";
       mod_dir += target_mod_dir;
       }
@@ -214,7 +212,7 @@ cmCommonTargetGenerator
     this->LocalGenerator->GetFortranFormat(srcfmt);
   if(format == cmLocalGenerator::FortranFormatNone)
     {
-    const char* tgtfmt = this->Target->GetProperty("Fortran_FORMAT");
+    const char* tgtfmt = this->GeneratorTarget->GetProperty("Fortran_FORMAT");
     format = this->LocalGenerator->GetFortranFormat(tgtfmt);
     }
   const char* var = 0;
@@ -265,7 +263,7 @@ std::string cmCommonTargetGenerator::GetFrameworkFlags(std::string const& l)
   for(std::vector<std::string>::iterator i = includes.begin();
       i != includes.end(); ++i)
     {
-    if(this->Target->NameResolvesToFramework(*i))
+    if(this->GlobalGenerator->NameResolvesToFramework(*i))
       {
       std::string frameworkDir = *i;
       frameworkDir += "/../";
@@ -316,10 +314,11 @@ std::string cmCommonTargetGenerator::GetFlags(const std::string &l)
       this->AddFortranFlags(flags);
       }
 
-    this->LocalGenerator->AddCMP0018Flags(flags, this->Target,
+    this->LocalGenerator->AddCMP0018Flags(flags, this->GeneratorTarget,
                                           lang, this->ConfigName);
 
-    this->LocalGenerator->AddVisibilityPresetFlags(flags, this->Target,
+    this->LocalGenerator->AddVisibilityPresetFlags(flags,
+                                                   this->GeneratorTarget,
                                                    lang);
 
     // Append old-style preprocessor definition flags.
@@ -331,7 +330,7 @@ std::string cmCommonTargetGenerator::GetFlags(const std::string &l)
       AppendFlags(flags,this->GetFrameworkFlags(l));
 
     // Add target-specific flags.
-    this->LocalGenerator->AddCompileOptions(flags, this->Target,
+    this->LocalGenerator->AddCompileOptions(flags, this->GeneratorTarget,
                                             lang, this->ConfigName);
 
     ByLanguageMap::value_type entry(l, flags);
@@ -348,13 +347,14 @@ std::string cmCommonTargetGenerator::GetDefines(const std::string &l)
     std::set<std::string> defines;
     const char *lang = l.c_str();
     // Add the export symbol definition for shared library objects.
-    if(const char* exportMacro = this->Target->GetExportMacro())
+    if(const char* exportMacro =
+       this->GeneratorTarget->GetExportMacro())
       {
       this->LocalGenerator->AppendDefines(defines, exportMacro);
       }
 
     // Add preprocessor definitions for this target and configuration.
-    this->LocalGenerator->AddCompileDefinitions(defines, this->Target,
+    this->LocalGenerator->AddCompileDefinitions(defines, this->GeneratorTarget,
                             this->LocalGenerator->GetConfigName(), l);
 
     std::string definesString;
@@ -383,7 +383,7 @@ std::vector<std::string>
 cmCommonTargetGenerator::GetLinkedTargetDirectories() const
 {
   std::vector<std::string> dirs;
-  std::set<cmTarget const*> emitted;
+  std::set<cmGeneratorTarget const*> emitted;
   if (cmComputeLinkInformation* cli =
       this->GeneratorTarget->GetLinkInformation(this->ConfigName))
     {
@@ -391,21 +391,18 @@ cmCommonTargetGenerator::GetLinkedTargetDirectories() const
     for(cmComputeLinkInformation::ItemVector::const_iterator
           i = items.begin(); i != items.end(); ++i)
       {
-      cmTarget const* linkee = i->Target;
+      cmGeneratorTarget const* linkee = i->Target;
       if(linkee && !linkee->IsImported()
                 // We can ignore the INTERFACE_LIBRARY items because
                 // Target->GetLinkInformation already processed their
                 // link interface and they don't have any output themselves.
-                && linkee->GetType() != cmTarget::INTERFACE_LIBRARY
+                && linkee->GetType() != cmState::INTERFACE_LIBRARY
                 && emitted.insert(linkee).second)
         {
-        cmGeneratorTarget* gt =
-          this->GlobalGenerator->GetGeneratorTarget(linkee);
-        cmLocalGenerator* lg = gt->GetLocalGenerator();
-        cmMakefile* mf = linkee->GetMakefile();
-        std::string di = mf->GetCurrentBinaryDirectory();
+        cmLocalGenerator* lg = linkee->GetLocalGenerator();
+        std::string di = lg->GetCurrentBinaryDirectory();
         di += "/";
-        di += lg->GetTargetDirectory(*linkee);
+        di += lg->GetTargetDirectory(linkee);
         dirs.push_back(di);
         }
       }

@@ -17,7 +17,6 @@
 #include "cmSystemTools.h"
 #include "cmTarget.h"
 #include "cmNewLineStyle.h"
-#include "cmGeneratorTarget.h"
 #include "cmExpandedCommandArgument.h"
 #include "cmake.h"
 #include "cmState.h"
@@ -42,7 +41,6 @@
 class cmFunctionBlocker;
 class cmCommand;
 class cmInstallGenerator;
-class cmMakeDepend;
 class cmSourceFile;
 class cmTest;
 class cmTestGenerator;
@@ -51,6 +49,7 @@ class cmake;
 class cmMakefileCall;
 class cmCMakePolicyCommand;
 class cmGeneratorExpressionEvaluationFile;
+class cmExportBuildFileGenerator;
 
 /** \class cmMakefile
  * \brief Process the input CMakeLists.txt file.
@@ -172,10 +171,10 @@ public:
 
   /** Create a new imported target with the name and type given.  */
   cmTarget* AddImportedTarget(const std::string& name,
-                              cmTarget::TargetType type,
+                              cmState::TargetType type,
                               bool global);
 
-  cmTarget* AddNewTarget(cmTarget::TargetType type, const std::string& name);
+  cmTarget* AddNewTarget(cmState::TargetType type, const std::string& name);
 
   /**
    * Add an executable to the build.
@@ -219,9 +218,9 @@ public:
    * Add a link library to the build.
    */
   void AddLinkLibrary(const std::string&);
-  void AddLinkLibrary(const std::string&, cmTarget::LinkLibraryType type);
+  void AddLinkLibrary(const std::string&, cmTargetLinkLibraryType type);
   void AddLinkLibraryForTarget(const std::string& tgt, const std::string&,
-                               cmTarget::LinkLibraryType type);
+                               cmTargetLinkLibraryType type);
   void AddLinkDirectoryForTarget(const std::string& tgt, const std::string& d);
 
   /**
@@ -274,11 +273,6 @@ public:
    */
   void SetProjectName(std::string const& name);
 
-  /**
-   * Get the name of the project for this build.
-   */
-  std::string GetProjectName() const;
-
   /** Get the configurations to be generated.  */
   std::string GetConfigurations(std::vector<std::string>& configs,
                                 bool single = true) const;
@@ -286,10 +280,10 @@ public:
   /**
    * Set the name of the library.
    */
-  cmTarget* AddLibrary(const std::string& libname, cmTarget::TargetType type,
+  cmTarget* AddLibrary(const std::string& libname, cmState::TargetType type,
                   const std::vector<std::string> &srcs,
                   bool excludeFromAll = false);
-  void AddAlias(const std::string& libname, cmTarget *tgt);
+  void AddAlias(const std::string& libname, const std::string& tgt);
 
 #if defined(CMAKE_BUILD_WITH_CMAKE)
   /**
@@ -349,9 +343,7 @@ public:
    */
   void SetArgcArgv(const std::vector<std::string>& args);
 
-  void SetCurrentSourceDirectory(const std::string& dir);
   const char* GetCurrentSourceDirectory() const;
-  void SetCurrentBinaryDirectory(const std::string& dir);
   const char* GetCurrentBinaryDirectory() const;
 
   //@}
@@ -394,27 +386,20 @@ public:
     {
       return this->ImportedTargetsOwned;
     }
+  std::vector<cmTarget*> GetImportedTargets() const;
 
-  const cmGeneratorTargetsType &GetGeneratorTargets() const
-    {
-      return this->GeneratorTargets;
-    }
-
-  void SetGeneratorTargets(const cmGeneratorTargetsType &targets)
-    {
-      this->GeneratorTargets = targets;
-    }
-  void AddGeneratorTarget(cmTarget* t, cmGeneratorTarget* gt);
-
-  cmTarget* FindTarget(const std::string& name,
-                       bool excludeAliases = false) const;
+  cmTarget* FindLocalNonAliasTarget(const std::string& name) const;
 
   /** Find a target to use in place of the given name.  The target
       returned may be imported or built within the project.  */
   cmTarget* FindTargetToUse(const std::string& name,
                             bool excludeAliases = false) const;
   bool IsAlias(const std::string& name) const;
-  cmGeneratorTarget* FindGeneratorTargetToUse(const std::string& name) const;
+
+  std::map<std::string, std::string> GetAliasTargets() const
+  {
+    return this->AliasTargets;
+  }
 
   /**
    * Mark include directories as system directories.
@@ -440,17 +425,6 @@ public:
    */
   cmSourceFile* GetOrCreateSource(const std::string& sourceName,
                                   bool generated = false);
-
-  //@{
-  /**
-   * Return a list of extensions associated with source and header
-   * files
-   */
-  const std::vector<std::string>& GetSourceExtensions() const
-    {return this->SourceFileExtensions;}
-  const std::vector<std::string>& GetHeaderExtensions() const
-    {return this->HeaderFileExtensions;}
-  //@}
 
   /**
    * Given a variable name, return its value (as a string).
@@ -734,7 +708,8 @@ public:
   };
 
   void IssueMessage(cmake::MessageType t,
-                    std::string const& text) const;
+                    std::string const& text,
+                    bool force = false) const;
 
   /** Set whether or not to report a CMP0000 violation.  */
   void SetCheckCMP0000(bool b) { this->CheckCMP0000 = b; }
@@ -792,6 +767,11 @@ public:
                   bool inputIsContent);
   std::vector<cmGeneratorExpressionEvaluationFile*> GetEvaluationFiles() const;
 
+  std::vector<cmExportBuildFileGenerator*>
+  GetExportBuildFileGenerators() const;
+  void RemoveExportBuildFileGeneratorCMP0024(cmExportBuildFileGenerator* gen);
+  void AddExportBuildFileGenerator(cmExportBuildFileGenerator* gen);
+
 protected:
   // add link libraries and directories to the target
   void AddGlobalLinkInformation(const std::string& name, cmTarget& target);
@@ -812,8 +792,7 @@ protected:
 #else
   typedef std::map<std::string, cmTarget*> TargetMap;
 #endif
-  TargetMap AliasTargets;
-  cmGeneratorTargetsType GeneratorTargets;
+  std::map<std::string, std::string> AliasTargets;
   std::vector<cmSourceFile*> SourceFiles;
 
   // Tests
@@ -835,8 +814,6 @@ protected:
   std::vector<cmTestGenerator*> TestGenerators;
 
   std::string ComplainFileRegularExpression;
-  std::vector<std::string> SourceFileExtensions;
-  std::vector<std::string> HeaderFileExtensions;
   std::string DefineFlags;
 
   // Track the value of the computed DEFINITIONS property.
@@ -867,10 +844,6 @@ private:
   bool EnforceUniqueDir(const std::string& srcPath,
                         const std::string& binPath) const;
 
-  friend class cmMakeDepend;    // make depend needs direct access
-                                // to the Sources array
-
-  void AddDefaultDefinitions();
   typedef std::vector<cmFunctionBlocker*> FunctionBlockersType;
   FunctionBlockersType FunctionBlockers;
   std::vector<FunctionBlockersType::size_type> FunctionBlockerBarriers;
@@ -885,6 +858,7 @@ private:
   mutable cmsys::RegularExpression cmNamedCurly;
 
   std::vector<cmMakefile*> UnConfiguredDirectories;
+  std::vector<cmExportBuildFileGenerator*> ExportBuildFileGenerators;
 
   std::vector<cmGeneratorExpressionEvaluationFile*> EvaluationFiles;
 

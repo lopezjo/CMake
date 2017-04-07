@@ -269,8 +269,7 @@ if(BUILD_TESTING)
     set(TEST_RESOURCES TRUE)
   endif()
   # for borland and watcom there is no resource support
-  if("${CMAKE_GENERATOR}" MATCHES "WMake" OR
-      "${CMAKE_GENERATOR}" MATCHES "Borland")
+  if(WATCOM OR BORLAND)
     set(TEST_RESOURCES FALSE)
   endif()
   if(TEST_RESOURCES)
@@ -686,13 +685,13 @@ ${CMake_BINARY_DIR}/bin/cmake -DDIR=dev -P ${CMake_SOURCE_DIR}/Utilities/Release
   endmacro()
   if(CMAKE_BUILD_NIGHTLY_RELEASES)
     ADD_NIGHTLY_BUILD_TEST(CMakeNightlyWindows
-      dash2win64_release.cmake)
-    ADD_NIGHTLY_BUILD_TEST(CMakeNightlyMac
-      dashmacmini2_release.cmake)
-    ADD_NIGHTLY_BUILD_TEST(CMakeNightlyMac64
+      dash3win7_release.cmake)
+    ADD_NIGHTLY_BUILD_TEST(CMakeNightlyOSX
       dashmacmini5_release.cmake)
-    ADD_NIGHTLY_BUILD_TEST(CMakeNightlyLinux
+    ADD_NIGHTLY_BUILD_TEST(CMakeNightlyLinux32
       magrathea_release.cmake)
+    ADD_NIGHTLY_BUILD_TEST(CMakeNightlyLinux64
+      linux64_release.cmake)
   endif()
 
   # add tests with more complex invocations
@@ -1033,9 +1032,11 @@ ${CMake_BINARY_DIR}/bin/cmake -DDIR=dev -P ${CMake_SOURCE_DIR}/Utilities/Release
       set(DEB_CONFIGURATIONS_TO_TEST "components-lintian-dpkgdeb-checks"
                                      "components-description1"
                                      "components-description2"
+                                     "components-source"
                                      "components-shlibdeps1"
                                      "components-depend1"
-                                     "components-depend2")
+                                     "components-depend2"
+                                     "compression")
       set(CPackGen "DEB")
       set(CPackRun_CPackGen "-DCPackGen=${CPackGen}")
 
@@ -1354,15 +1355,40 @@ ${CMake_BINARY_DIR}/bin/cmake -DDIR=dev -P ${CMake_SOURCE_DIR}/Utilities/Release
     endif()
   endif()
 
+  if(CMake_TEST_FindBoost)
+    add_subdirectory(FindBoost)
+  endif()
+
   if(CMake_TEST_FindGSL)
     add_subdirectory(FindGSL)
   endif()
+
+  if(CMake_TEST_FindGTest)
+    add_subdirectory(FindGTest)
+  endif()
+
   if(CMake_TEST_FindJsonCpp)
     add_subdirectory(FindJsonCpp)
   endif()
 
   if(CMake_TEST_FindOpenSSL)
     add_subdirectory(FindOpenSSL)
+  endif()
+
+  if(CMake_TEST_FindPNG)
+    add_subdirectory(FindPNG)
+  endif()
+
+  if(CMake_TEST_FindTIFF)
+    add_subdirectory(FindTIFF)
+  endif()
+
+  if(CMake_TEST_FindXalanC)
+    add_subdirectory(FindXalanC)
+  endif()
+
+  if(CMake_TEST_FindXercesC)
+    add_subdirectory(FindXercesC)
   endif()
 
   add_subdirectory(FindThreads)
@@ -2560,6 +2586,7 @@ ${CMake_BINARY_DIR}/bin/cmake -DDIR=dev -P ${CMake_SOURCE_DIR}/Utilities/Release
   set_tests_properties(CTestCoberturaCoverage PROPERTIES
       PASS_REGULAR_EXPRESSION
       "Process file.*CoverageTest.java.*Total LOC:.*18.*Percentage Coverage: 72.22.*"
+      ENVIRONMENT COBERTURADIR=${CMake_BINARY_DIR}/Testing/CoberturaCoverage
       ENVIRONMENT COVFILE=)
 
 
@@ -2605,8 +2632,9 @@ ${CMake_BINARY_DIR}/bin/cmake -DDIR=dev -P ${CMake_SOURCE_DIR}/Utilities/Release
      "${CMake_BINARY_DIR}/Testing/DelphiCoverage/DartConfiguration.tcl")
   file(COPY "${CMake_SOURCE_DIR}/Tests/DelphiCoverage/src"
     DESTINATION "${CMake_BINARY_DIR}/Testing/DelphiCoverage")
-  file(COPY "${CMake_SOURCE_DIR}/Tests/DelphiCoverage/UTCovTest(UTCovTest.pas).html"
-    DESTINATION "${CMake_BINARY_DIR}/Testing/DelphiCoverage")
+  configure_file(
+    "${CMake_SOURCE_DIR}/Tests/DelphiCoverage/UTCovTest(UTCovTest.pas).html.in"
+    "${CMake_BINARY_DIR}/Testing/DelphiCoverage/UTCovTest(UTCovTest.pas).html")
   add_test(NAME CTestDelphiCoverage
     COMMAND cmake -E chdir
     ${CMake_BINARY_DIR}/Testing/DelphiCoverage

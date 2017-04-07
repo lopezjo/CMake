@@ -31,23 +31,22 @@ cmNinjaTargetGenerator::New(cmGeneratorTarget* target)
 {
   switch (target->GetType())
     {
-      case cmTarget::EXECUTABLE:
-      case cmTarget::SHARED_LIBRARY:
-      case cmTarget::STATIC_LIBRARY:
-      case cmTarget::MODULE_LIBRARY:
-      case cmTarget::OBJECT_LIBRARY:
+      case cmState::EXECUTABLE:
+      case cmState::SHARED_LIBRARY:
+      case cmState::STATIC_LIBRARY:
+      case cmState::MODULE_LIBRARY:
+      case cmState::OBJECT_LIBRARY:
         return new cmNinjaNormalTargetGenerator(target);
 
-      case cmTarget::UTILITY:
+      case cmState::UTILITY:
         return new cmNinjaUtilityTargetGenerator(target);;
 
-      case cmTarget::GLOBAL_TARGET: {
+      case cmState::GLOBAL_TARGET: {
         // We only want to process global targets that live in the home
         // (i.e. top-level) directory.  CMake creates copies of these targets
         // in every directory, which we don't need.
-        cmMakefile *mf = target->Target->GetMakefile();
-        if (strcmp(mf->GetCurrentSourceDirectory(),
-                   mf->GetHomeDirectory()) == 0)
+        if (strcmp(target->GetLocalGenerator()->GetCurrentSourceDirectory(),
+                   target->GetLocalGenerator()->GetSourceDirectory()) == 0)
           return new cmNinjaUtilityTargetGenerator(target);
         // else fallthrough
       }
@@ -93,7 +92,7 @@ std::string cmNinjaTargetGenerator::LanguageCompilerRule(
   const std::string& lang) const
 {
   return lang + "_COMPILER__" +
-    cmGlobalNinjaGenerator::EncodeRuleName(this->Target->GetName());
+    cmGlobalNinjaGenerator::EncodeRuleName(this->GeneratorTarget->GetName());
 }
 
 std::string
@@ -149,17 +148,9 @@ void cmNinjaTargetGenerator::AddIncludeFlags(std::string& languageFlags,
 
 bool cmNinjaTargetGenerator::NeedDepTypeMSVC(const std::string& lang) const
 {
-  if (lang == "C" || lang == "CXX")
-    {
-    cmMakefile* mf = this->GetMakefile();
-    return (
-      strcmp(mf->GetSafeDefinition("CMAKE_C_COMPILER_ID"), "MSVC") == 0 ||
-      strcmp(mf->GetSafeDefinition("CMAKE_CXX_COMPILER_ID"), "MSVC") == 0 ||
-      strcmp(mf->GetSafeDefinition("CMAKE_C_SIMULATE_ID"), "MSVC") == 0 ||
-      strcmp(mf->GetSafeDefinition("CMAKE_CXX_SIMULATE_ID"), "MSVC") == 0
-      );
-    }
-  return false;
+  return strcmp(
+    this->GetMakefile()->GetSafeDefinition("CMAKE_NINJA_DEPTYPE_" + lang),
+    "msvc") == 0;
 }
 
 // TODO: Refactor with
@@ -190,8 +181,8 @@ ComputeDefines(cmSourceFile const* source, const std::string& language)
 cmNinjaDeps cmNinjaTargetGenerator::ComputeLinkDeps() const
 {
   // Static libraries never depend on other targets for linking.
-  if (this->Target->GetType() == cmTarget::STATIC_LIBRARY ||
-      this->Target->GetType() == cmTarget::OBJECT_LIBRARY)
+  if (this->GeneratorTarget->GetType() == cmState::STATIC_LIBRARY ||
+      this->GeneratorTarget->GetType() == cmState::OBJECT_LIBRARY)
     return cmNinjaDeps();
 
   cmComputeLinkInformation* cli =
@@ -204,9 +195,10 @@ cmNinjaDeps cmNinjaTargetGenerator::ComputeLinkDeps() const
   std::transform(deps.begin(), deps.end(), result.begin(), MapToNinjaPath());
 
   // Add a dependency on the link definitions file, if any.
-  if(!this->ModuleDefinitionFile.empty())
+  if(this->ModuleDefinitionFile)
     {
-    result.push_back(this->ConvertToNinjaPath(this->ModuleDefinitionFile));
+    result.push_back(this->ConvertToNinjaPath(
+        this->ModuleDefinitionFile->GetFullPath()));
     }
 
   // Add a dependency on user-specified manifest files, if any.
@@ -219,7 +211,8 @@ cmNinjaDeps cmNinjaTargetGenerator::ComputeLinkDeps() const
     }
 
   // Add user-specified dependencies.
-  if (const char* linkDepends = this->Target->GetProperty("LINK_DEPENDS"))
+  if (const char* linkDepends =
+      this->GeneratorTarget->GetProperty("LINK_DEPENDS"))
     {
     std::vector<std::string> linkDeps;
     cmSystemTools::ExpandListArgument(linkDepends, linkDeps);
@@ -246,7 +239,7 @@ cmNinjaTargetGenerator
     path += "/";
   std::string const& objectName = this->GeneratorTarget
                                       ->GetObjectName(source);
-  path += this->LocalGenerator->GetTargetDirectory(*this->Target);
+  path += this->LocalGenerator->GetTargetDirectory(this->GeneratorTarget);
   path += "/";
   path += objectName;
   return path;
@@ -254,7 +247,7 @@ cmNinjaTargetGenerator
 
 std::string cmNinjaTargetGenerator::GetTargetOutputDir() const
 {
-  std::string dir = this->Target->GetDirectory(this->GetConfigName());
+  std::string dir = this->GeneratorTarget->GetDirectory(this->GetConfigName());
   return ConvertToNinjaPath(dir);
 }
 
@@ -272,7 +265,7 @@ cmNinjaTargetGenerator
 
 std::string cmNinjaTargetGenerator::GetTargetName() const
 {
-  return this->Target->GetName();
+  return this->GeneratorTarget->GetName();
 }
 
 
@@ -284,22 +277,22 @@ bool cmNinjaTargetGenerator::SetMsvcTargetPdbVariable(cmNinjaVars& vars) const
     {
     std::string pdbPath;
     std::string compilePdbPath;
-    if(this->Target->GetType() == cmTarget::EXECUTABLE ||
-       this->Target->GetType() == cmTarget::STATIC_LIBRARY ||
-       this->Target->GetType() == cmTarget::SHARED_LIBRARY ||
-       this->Target->GetType() == cmTarget::MODULE_LIBRARY)
+    if(this->GeneratorTarget->GetType() == cmState::EXECUTABLE ||
+       this->GeneratorTarget->GetType() == cmState::STATIC_LIBRARY ||
+       this->GeneratorTarget->GetType() == cmState::SHARED_LIBRARY ||
+       this->GeneratorTarget->GetType() == cmState::MODULE_LIBRARY)
       {
-      pdbPath = this->Target->GetPDBDirectory(this->GetConfigName());
+      pdbPath = this->GeneratorTarget->GetPDBDirectory(this->GetConfigName());
       pdbPath += "/";
       pdbPath += this->GeneratorTarget->GetPDBName(this->GetConfigName());
       }
-    if(this->Target->GetType() <= cmTarget::OBJECT_LIBRARY)
+    if(this->GeneratorTarget->GetType() <= cmState::OBJECT_LIBRARY)
       {
       compilePdbPath =
               this->GeneratorTarget->GetCompilePDBPath(this->GetConfigName());
       if(compilePdbPath.empty())
         {
-        compilePdbPath = this->Target->GetSupportDirectory() + "/";
+        compilePdbPath = this->GeneratorTarget->GetSupportDirectory() + "/";
         }
       }
 
@@ -335,7 +328,7 @@ cmNinjaTargetGenerator
 {
   cmLocalGenerator::RuleVariables vars;
   vars.RuleLauncher = "RULE_LAUNCH_COMPILE";
-  vars.CMTarget = this->GetTarget();
+  vars.CMTarget = this->GetGeneratorTarget();
   vars.Language = lang.c_str();
   vars.Source = "$in";
   vars.Object = "$out";
@@ -359,7 +352,7 @@ cmNinjaTargetGenerator
     depfile = "";
     flags += " /showIncludes";
     }
-  else if (lang == "RC" && this->NeedDepTypeMSVC("C"))
+  else if (mf->IsOn("CMAKE_NINJA_CMCLDEPS_"+lang))
     {
     // For the MS resource compiler we need cmcldeps, but skip dependencies
     // for source-file try_compile cases because they are always fresh.
@@ -411,7 +404,7 @@ cmNinjaTargetGenerator
   if (!compileCmds.empty() && (lang == "C" || lang == "CXX"))
     {
     std::string const iwyu_prop = lang + "_INCLUDE_WHAT_YOU_USE";
-    const char *iwyu = this->Target->GetProperty(iwyu_prop);
+    const char *iwyu = this->GeneratorTarget->GetProperty(iwyu_prop);
     if (iwyu && *iwyu)
       {
       std::string run_iwyu =
@@ -428,7 +421,7 @@ cmNinjaTargetGenerator
   if (!compileCmds.empty() && (lang == "C" || lang == "CXX"))
     {
     std::string const clauncher_prop = lang + "_COMPILER_LAUNCHER";
-    const char *clauncher = this->Target->GetProperty(clauncher_prop);
+    const char *clauncher = this->GeneratorTarget->GetProperty(clauncher_prop);
     if (clauncher && *clauncher)
       {
       std::vector<std::string> launcher_cmd;
@@ -481,7 +474,7 @@ cmNinjaTargetGenerator
   cmGlobalNinjaGenerator::WriteDivider(this->GetBuildFileStream());
   this->GetBuildFileStream()
     << "# Object build statements for "
-    << cmTarget::GetTargetTypeName(this->GetTarget()->GetType())
+    << cmState::GetTargetTypeName(this->GetGeneratorTarget()->GetType())
     << " target "
     << this->GetTargetName()
     << "\n\n";
@@ -494,7 +487,8 @@ cmNinjaTargetGenerator
       si != customCommands.end(); ++si)
      {
      cmCustomCommand const* cc = (*si)->GetCustomCommand();
-     this->GetLocalGenerator()->AddCustomCommandTarget(cc, this->GetTarget());
+     this->GetLocalGenerator()->AddCustomCommandTarget(cc,
+         this->GetGeneratorTarget());
      // Record the custom commands for this target. The container is used
      // in WriteObjectBuildStatement when called in a loop below.
      this->CustomCommands.push_back(cc);
@@ -519,7 +513,8 @@ cmNinjaTargetGenerator
     }
 
   cmNinjaDeps orderOnlyDeps;
-  this->GetLocalGenerator()->AppendTargetDepends(this->Target, orderOnlyDeps);
+  this->GetLocalGenerator()->AppendTargetDepends(this->GeneratorTarget,
+                                                 orderOnlyDeps);
 
   // Add order-only dependencies on custom command outputs.
   for(std::vector<cmCustomCommand const*>::const_iterator
@@ -568,7 +563,7 @@ cmNinjaTargetGenerator
   std::string const language = source->GetLanguage();
   std::string const sourceFileName =
     language=="RC" ? source->GetFullPath() : this->GetSourceFilePath(source);
-  std::string const objectDir = this->Target->GetSupportDirectory();
+  std::string const objectDir = this->GeneratorTarget->GetSupportDirectory();
   std::string const objectFileName = this->GetObjectFilePath(source);
   std::string const objectFileDir =
     cmSystemTools::GetFilenamePath(objectFileName);
@@ -641,7 +636,8 @@ cmNinjaTargetGenerator
                               ConvertToNinjaPath(objectFileDir),
                               cmLocalGenerator::SHELL);
 
-  this->addPoolNinjaVariable("JOB_POOL_COMPILE", this->GetTarget(), vars);
+  this->addPoolNinjaVariable("JOB_POOL_COMPILE",
+                             this->GetGeneratorTarget(), vars);
 
   this->SetMsvcTargetPdbVariable(vars);
 
@@ -790,7 +786,7 @@ cmNinjaTargetGenerator::MacOSXContentGeneratorType::operator()(
 
 void cmNinjaTargetGenerator::addPoolNinjaVariable(
                                               const std::string& pool_property,
-                                              cmTarget* target,
+                                              cmGeneratorTarget* target,
                                               cmNinjaVars& vars)
 {
     const char* pool = target->GetProperty(pool_property);

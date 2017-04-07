@@ -8,7 +8,7 @@
 # ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #
 # CPackDeb may be used to create Deb package using CPack.
-# CPackDeb is a CPack generator thus it uses the CPACK_XXX variables
+# CPackDeb is a CPack generator thus it uses the ``CPACK_XXX`` variables
 # used by CPack : https://cmake.org/Wiki/CMake:CPackConfiguration.
 # CPackDeb generator should work on any linux host but it will produce
 # better deb package when Debian specific tools 'dpkg-xxx' are usable on
@@ -18,7 +18,7 @@
 # :code:`CPACK_DEBIAN_XXX` variables.
 #
 # :code:`CPACK_DEBIAN_<COMPONENT>_XXXX` variables may be used in order to have
-# **component** specific values.  Note however that <COMPONENT> refers to the
+# **component** specific values.  Note however that ``<COMPONENT>`` refers to the
 # **grouping name** written in upper case. It may be either a component name or
 # a component GROUP name.
 #
@@ -27,11 +27,20 @@
 # However as a handy reminder here comes the list of specific variables:
 #
 # .. variable:: CPACK_DEBIAN_PACKAGE_NAME
+#               CPACK_DEBIAN_<COMPONENT>_PACKAGE_NAME
 #
-#  The Debian package summary
+#  Set Package control field (variable is automatically transformed to lower
+#  case).
 #
 #  * Mandatory : YES
-#  * Default   : :variable:`CPACK_PACKAGE_NAME` (lower case)
+#  * Default   :
+#
+#    - :variable:`CPACK_PACKAGE_NAME` for non-component based
+#      installations
+#    - :variable:`CPACK_DEBIAN_PACKAGE_NAME` suffixed with -<COMPONENT>
+#      for component-based installations.
+#
+#  See https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Source
 #
 #
 # .. variable:: CPACK_DEBIAN_PACKAGE_VERSION
@@ -100,9 +109,15 @@
 #
 #
 # .. variable:: CPACK_DEBIAN_PACKAGE_SECTION
+#               CPACK_DEBIAN_<COMPONENT>_PACKAGE_SECTION
+#
+#  Set Section control field e.g. admin, devel, doc, ...
 #
 #  * Mandatory : YES
 #  * Default   : 'devel'
+#
+#  See https://www.debian.org/doc/debian-policy/ch-archive.html#s-subsections
+#
 #
 # .. variable:: CPACK_DEBIAN_COMPRESSION_TYPE
 #
@@ -114,11 +129,15 @@
 #
 #
 # .. variable:: CPACK_DEBIAN_PACKAGE_PRIORITY
+#               CPACK_DEBIAN_<COMPONENT>_PACKAGE_PRIORITY
 #
-#  The Debian package priority
+#  Set Priority control field e.g. required, important, standard, optional,
+#  extra
 #
 #  * Mandatory : YES
 #  * Default   : 'optional'
+#
+#  See https://www.debian.org/doc/debian-policy/ch-archive.html#s-priorities
 #
 #
 # .. variable:: CPACK_DEBIAN_PACKAGE_HOMEPAGE
@@ -354,7 +373,28 @@
 #    set by Debian policy
 #    https://www.debian.org/doc/debian-policy/ch-files.html#s-permissions-owners
 #
-
+# .. variable:: CPACK_DEBIAN_PACKAGE_SOURCE
+#               CPACK_DEBIAN_<COMPONENT>_PACKAGE_SOURCE
+#
+#  Sets the ``Source`` field of the binary Debian package.
+#  When the binary package name is not the same as the source package name
+#  (in particular when several components/binaries are generated from one
+#  source) the source from which the binary has been generated should be
+#  indicated with the field ``Source``.
+#
+#  * Mandatory : NO
+#  * Default   :
+#
+#    - An empty string for non-component based installations
+#    - :variable:`CPACK_DEBIAN_PACKAGE_SOURCE` for component-based
+#      installations.
+#
+#  See https://www.debian.org/doc/debian-policy/ch-controlfields.html#s-f-Source
+#
+#  .. note::
+#
+#    This value is not interpreted. It is possible to pass an optional
+#    revision number of the referenced source package as well.
 
 #=============================================================================
 # Copyright 2007-2009 Kitware, Inc.
@@ -554,24 +594,33 @@ function(cpack_deb_prepare_package_vars)
       )
   endif()
 
+  # Source: (optional)
+  # in case several packages are constructed from a unique source
+  # (multipackaging), the source may be indicated as well.
+  # The source might contain a version if the generated package
+  # version is different from the source version
+  if(NOT CPACK_DEBIAN_PACKAGE_SOURCE)
+    set(CPACK_DEBIAN_PACKAGE_SOURCE "")
+  endif()
+
   # have a look at get_property(result GLOBAL PROPERTY ENABLED_FEATURES),
   # this returns the successful find_package() calls, maybe this can help
   # Depends:
   # You should set: DEBIAN_PACKAGE_DEPENDS
   # TODO: automate 'objdump -p | grep NEEDED'
 
-  # if per-component dependency, overrides the global CPACK_DEBIAN_PACKAGE_${dependency_type_}
+  # if per-component variable, overrides the global CPACK_DEBIAN_PACKAGE_${variable_type_}
   # automatic dependency discovery will be performed afterwards.
   if(CPACK_DEB_PACKAGE_COMPONENT)
-    foreach(dependency_type_ DEPENDS RECOMMENDS SUGGESTS PREDEPENDS ENHANCES BREAKS CONFLICTS PROVIDES REPLACES)
-      set(_component_var "CPACK_DEBIAN_${_local_component_name}_PACKAGE_${dependency_type_}")
+    foreach(value_type_ DEPENDS RECOMMENDS SUGGESTS PREDEPENDS ENHANCES BREAKS CONFLICTS PROVIDES REPLACES SOURCE SECTION PRIORITY NAME)
+      set(_component_var "CPACK_DEBIAN_${_local_component_name}_PACKAGE_${value_type_}")
 
-      # if set, overrides the global dependency
+      # if set, overrides the global variable
       if(DEFINED ${_component_var})
-        set(CPACK_DEBIAN_PACKAGE_${dependency_type_} "${${_component_var}}")
+        set(CPACK_DEBIAN_PACKAGE_${value_type_} "${${_component_var}}")
         if(CPACK_DEBIAN_PACKAGE_DEBUG)
-          message("CPackDeb Debug: component '${_local_component_name}' ${dependency_type_}"
-            "dependencies set to '${CPACK_DEBIAN_PACKAGE_${dependency_}}'")
+          message("CPackDeb Debug: component '${_local_component_name}' ${value_type_} "
+            "value set to '${CPACK_DEBIAN_PACKAGE_${value_type_}}'")
         endif()
       endif()
     endforeach()
@@ -664,23 +713,25 @@ function(cpack_deb_prepare_package_vars)
       endif()
     endforeach()
 
-    set(CPACK_DEB_PACKAGE_COMPONENT_PART_NAME "-${CPACK_DEB_PACKAGE_COMPONENT}")
-    string(TOLOWER "${CPACK_PACKAGE_NAME}${CPACK_DEB_PACKAGE_COMPONENT_PART_NAME}" CPACK_DEBIAN_PACKAGE_NAME)
-  else()
-    set(CPACK_DEB_PACKAGE_COMPONENT_PART_NAME "")
+    if(CPACK_DEBIAN_${_local_component_name}_PACKAGE_NAME)
+      string(TOLOWER "${CPACK_DEBIAN_${_local_component_name}_PACKAGE_NAME}" CPACK_DEBIAN_PACKAGE_NAME)
+    else()
+      string(TOLOWER "${CPACK_DEBIAN_PACKAGE_NAME}-${CPACK_DEB_PACKAGE_COMPONENT}" CPACK_DEBIAN_PACKAGE_NAME)
+    endif()
   endif()
 
   # Print out some debug information if we were asked for that
   if(CPACK_DEBIAN_PACKAGE_DEBUG)
-     message("CPackDeb:Debug: CPACK_TOPLEVEL_DIRECTORY          = ${CPACK_TOPLEVEL_DIRECTORY}")
-     message("CPackDeb:Debug: CPACK_TOPLEVEL_TAG                = ${CPACK_TOPLEVEL_TAG}")
-     message("CPackDeb:Debug: CPACK_TEMPORARY_DIRECTORY         = ${CPACK_TEMPORARY_DIRECTORY}")
-     message("CPackDeb:Debug: CPACK_OUTPUT_FILE_NAME            = ${CPACK_OUTPUT_FILE_NAME}")
-     message("CPackDeb:Debug: CPACK_OUTPUT_FILE_PATH            = ${CPACK_OUTPUT_FILE_PATH}")
-     message("CPackDeb:Debug: CPACK_PACKAGE_FILE_NAME           = ${CPACK_PACKAGE_FILE_NAME}")
-     message("CPackDeb:Debug: CPACK_PACKAGE_INSTALL_DIRECTORY   = ${CPACK_PACKAGE_INSTALL_DIRECTORY}")
-     message("CPackDeb:Debug: CPACK_TEMPORARY_PACKAGE_FILE_NAME = ${CPACK_TEMPORARY_PACKAGE_FILE_NAME}")
-     message("CPackDeb:Debug: CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION = ${CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION}")
+     message("CPackDeb:Debug: CPACK_TOPLEVEL_DIRECTORY          = '${CPACK_TOPLEVEL_DIRECTORY}'")
+     message("CPackDeb:Debug: CPACK_TOPLEVEL_TAG                = '${CPACK_TOPLEVEL_TAG}'")
+     message("CPackDeb:Debug: CPACK_TEMPORARY_DIRECTORY         = '${CPACK_TEMPORARY_DIRECTORY}'")
+     message("CPackDeb:Debug: CPACK_OUTPUT_FILE_NAME            = '${CPACK_OUTPUT_FILE_NAME}'")
+     message("CPackDeb:Debug: CPACK_OUTPUT_FILE_PATH            = '${CPACK_OUTPUT_FILE_PATH}'")
+     message("CPackDeb:Debug: CPACK_PACKAGE_FILE_NAME           = '${CPACK_PACKAGE_FILE_NAME}'")
+     message("CPackDeb:Debug: CPACK_PACKAGE_INSTALL_DIRECTORY   = '${CPACK_PACKAGE_INSTALL_DIRECTORY}'")
+     message("CPackDeb:Debug: CPACK_TEMPORARY_PACKAGE_FILE_NAME = '${CPACK_TEMPORARY_PACKAGE_FILE_NAME}'")
+     message("CPackDeb:Debug: CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION = '${CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION}'")
+     message("CPackDeb:Debug: CPACK_DEBIAN_PACKAGE_SOURCE       = '${CPACK_DEBIAN_PACKAGE_SOURCE}'")
   endif()
 
   # For debian source packages:
@@ -719,6 +770,8 @@ function(cpack_deb_prepare_package_vars)
   set(GEN_CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA}" PARENT_SCOPE)
   set(GEN_CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION
       "${CPACK_DEBIAN_PACKAGE_CONTROL_STRICT_PERMISSION}" PARENT_SCOPE)
+  set(GEN_CPACK_DEBIAN_PACKAGE_SOURCE
+     "${CPACK_DEBIAN_PACKAGE_SOURCE}" PARENT_SCOPE)
   set(GEN_WDIR "${WDIR}" PARENT_SCOPE)
 endfunction()
 

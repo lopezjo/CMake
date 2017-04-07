@@ -183,13 +183,20 @@ if("${CPACK_GENERATOR}" STREQUAL "PackageMaker")
   endif()
 endif()
 
+if("${CPACK_GENERATOR}" STREQUAL "DragNDrop")
+  set(CPACK_DMG_BACKGROUND_IMAGE
+      "@CMake_SOURCE_DIR@/Packaging/CMakeDMGBackground.tif")
+  set(CPACK_DMG_DS_STORE_SETUP_SCRIPT
+      "@CMake_SOURCE_DIR@/Packaging/CMakeDMGSetup.scpt")
+endif()
+
 if("${CPACK_GENERATOR}" STREQUAL "WIX")
   # Reset CPACK_PACKAGE_VERSION to deal with WiX restriction.
   # But the file names still use the full CMake_VERSION value:
   set(CPACK_PACKAGE_FILE_NAME
-    "${CPACK_PACKAGE_NAME}-@CMake_VERSION@-${CPACK_SYSTEM_NAME}")
+    "cmake-@CMake_VERSION@-${CPACK_SYSTEM_NAME}")
   set(CPACK_SOURCE_PACKAGE_FILE_NAME
-    "${CPACK_PACKAGE_NAME}-@CMake_VERSION@-Source")
+    "cmake-@CMake_VERSION@")
 
   if(NOT CPACK_WIX_SIZEOF_VOID_P)
     set(CPACK_WIX_SIZEOF_VOID_P "@CMAKE_SIZEOF_VOID_P@")
@@ -227,10 +234,57 @@ if("${CPACK_GENERATOR}" STREQUAL "WIX")
   set(CPACK_WIX_LIGHT_EXTRA_FLAGS "-dcl:high")
 
   set(CPACK_WIX_UI_BANNER
-    "@CMake_SOURCE_DIR@/Utilities/Release/cpack_wix_ui_banner.jpg"
+    "@CMake_SOURCE_DIR@/Utilities/Release/WiX/ui_banner.jpg"
   )
 
   set(CPACK_WIX_UI_DIALOG
-    "@CMake_SOURCE_DIR@/Utilities/Release/cpack_wix_ui_dialog.jpg"
+    "@CMake_SOURCE_DIR@/Utilities/Release/WiX/ui_dialog.jpg"
   )
+
+  set(CPACK_WIX_EXTRA_SOURCES
+    "@CMake_SOURCE_DIR@/Utilities/Release/WiX/install_dir.wxs"
+    "@CMake_SOURCE_DIR@/Utilities/Release/WiX/cmake_extra_dialog.wxs"
+  )
+
+  set(_WIX_CUSTOM_ACTION_ENABLED "@WIX_CUSTOM_ACTION_ENABLED@")
+  if(_WIX_CUSTOM_ACTION_ENABLED)
+    list(APPEND CPACK_WIX_EXTRA_SOURCES
+      "@CMake_SOURCE_DIR@/Utilities/Release/WiX/cmake_nsis_overwrite_dialog.wxs"
+      )
+    list(APPEND CPACK_WIX_CANDLE_EXTRA_FLAGS -dCHECK_NSIS=1)
+
+    set(_WIX_CUSTOM_ACTION_MULTI_CONFIG "@WIX_CUSTOM_ACTION_MULTI_CONFIG@")
+    if(_WIX_CUSTOM_ACTION_MULTI_CONFIG)
+      if(CPACK_BUILD_CONFIG)
+        set(_WIX_CUSTOM_ACTION_CONFIG "${CPACK_BUILD_CONFIG}")
+      else()
+        set(_WIX_CUSTOM_ACTION_CONFIG "Release")
+      endif()
+
+      list(APPEND CPACK_WIX_EXTRA_SOURCES
+        "@CMake_BINARY_DIR@/Utilities/Release/WiX/custom_action_dll-${_WIX_CUSTOM_ACTION_CONFIG}.wxs")
+    else()
+      list(APPEND CPACK_WIX_EXTRA_SOURCES
+        "@CMake_BINARY_DIR@/Utilities/Release/WiX/custom_action_dll.wxs")
+    endif()
+  endif()
+
+  set(CPACK_WIX_UI_REF "CMakeUI_InstallDir")
+
+  set(CPACK_WIX_PATCH_FILE
+    "@CMake_SOURCE_DIR@/Utilities/Release/WiX/patch_path_env.xml"
+  )
+
+  set(CPACK_WIX_TEMPLATE
+    "@CMake_SOURCE_DIR@/Utilities/Release/WiX/WIX.template.in"
+  )
+
+  set(BUILD_QtDialog "@BUILD_QtDialog@")
+
+  if(BUILD_QtDialog)
+    list(APPEND CPACK_WIX_PATCH_FILE
+      "@CMake_SOURCE_DIR@/Utilities/Release/WiX/patch_desktop_shortcut.xml"
+      )
+    list(APPEND CPACK_WIX_CANDLE_EXTRA_FLAGS -dBUILD_QtDialog=1)
+  endif()
 endif()

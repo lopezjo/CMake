@@ -13,7 +13,6 @@
 #include "cmCPackNSISGenerator.h"
 
 #include "cmGlobalGenerator.h"
-#include "cmLocalGenerator.h"
 #include "cmSystemTools.h"
 #include "cmMakefile.h"
 #include "cmGeneratedFileStream.h"
@@ -156,6 +155,28 @@ int cmCPackNSISGenerator::PackageFiles()
     installerIconCode += "\"\n";
     this->SetOptionIfNotSet("CPACK_NSIS_INSTALLER_ICON_CODE",
                             installerIconCode.c_str());
+    }
+
+  if (this->IsSet("CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP"))
+    {
+    std::string installerBitmapCode =
+      "!define MUI_WELCOMEFINISHPAGE_BITMAP \"";
+    installerBitmapCode +=
+      this->GetOption("CPACK_NSIS_MUI_WELCOMEFINISHPAGE_BITMAP");
+    installerBitmapCode += "\"\n";
+    this->SetOptionIfNotSet("CPACK_NSIS_INSTALLER_MUI_WELCOMEFINISH_CODE",
+                            installerBitmapCode.c_str());
+    }
+
+  if (this->IsSet("CPACK_NSIS_MUI_UNWELCOMEFINISHPAGE_BITMAP"))
+    {
+    std::string installerBitmapCode =
+      "!define MUI_UNWELCOMEFINISHPAGE_BITMAP \"";
+    installerBitmapCode +=
+      this->GetOption("CPACK_NSIS_MUI_UNWELCOMEFINISHPAGE_BITMAP");
+    installerBitmapCode += "\"\n";
+    this->SetOptionIfNotSet("CPACK_NSIS_INSTALLER_MUI_UNWELCOMEFINISH_CODE",
+                            installerBitmapCode.c_str());
     }
 
   if(this->IsSet("CPACK_NSIS_MUI_FINISHPAGE_RUN"))
