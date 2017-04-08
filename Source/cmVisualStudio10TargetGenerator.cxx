@@ -430,7 +430,7 @@ void cmVisualStudio10TargetGenerator::Generate()
       "</Keyword>\n";
     }
 
-  const char* projLabel = this->Target->GetProperty("PROJECT_LABEL");
+  const char* projLabel = this->GeneratorTarget->GetProperty("PROJECT_LABEL");
   if(!projLabel)
     {
     projLabel = this->Name.c_str();
@@ -452,11 +452,7 @@ void cmVisualStudio10TargetGenerator::Generate()
   this->WriteString("<Platform>", 2);
   (*this->BuildFileStream) << cmVS10EscapeXML(this->Platform)
                            << "</Platform>\n";
-  const char* projLabel = this->GeneratorTarget->GetProperty("PROJECT_LABEL");
-  if(!projLabel)
-    {
-    projLabel = this->Name.c_str();
-    }
+
   this->WriteString("<ProjectName>", 2);
   (*this->BuildFileStream) << cmVS10EscapeXML(projLabel) << "</ProjectName>\n";
   if(const char* targetFrameworkVersion = this->GeneratorTarget->GetProperty(
@@ -512,7 +508,7 @@ void cmVisualStudio10TargetGenerator::Generate()
   this->WriteString("<Import Project=\"" VS10_USER_PROPS "\""
                     " Condition=\"exists('" VS10_USER_PROPS "')\""
                     " Label=\"LocalAppDataPlatform\" />\n", 2);
-  if (const char* propSheet = this->Target->GetProperty(
+  if (const char* propSheet = this->GeneratorTarget->GetProperty(
       "VS_CUSTOM_PROPERTYSHEET"))
   {
       std::string import = "<Import Project=\"";
@@ -911,20 +907,20 @@ void cmVisualStudio10TargetGenerator
         "</UseDebugLibraries>\n";
     }
 
-  if(const char* useOfStl = this->Target->GetProperty("VC_MDD_ANDROID_USE_OF_STL"))
+  if(const char* useOfStl = this->GeneratorTarget->GetProperty("VC_MDD_ANDROID_USE_OF_STL"))
     {
     this->WriteString("<UseOfStl>", 2);
     (*this->BuildFileStream) << cmVS10EscapeXML(useOfStl) <<
       "</UseOfStl>\n";
     }
-  if(const char* apiLevel = this->Target->GetProperty("VC_MDD_ANDROID_API_LEVEL"))
+  if(const char* apiLevel = this->GeneratorTarget->GetProperty("VC_MDD_ANDROID_API_LEVEL"))
     {
     this->WriteString("<AndroidAPILevel>", 2);
     (*this->BuildFileStream) << cmVS10EscapeXML(apiLevel) <<
       "</AndroidAPILevel>\n";
     }
   if(const char* platformToolset =
-      this->Target->GetProperty("VC_MDD_ANDROID_PLATFORM_TOOLSET"))
+      this->GeneratorTarget->GetProperty("VC_MDD_ANDROID_PLATFORM_TOOLSET"))
     {
     this->WriteString("<PlatformToolset>", 2);
     (*this->BuildFileStream) << cmVS10EscapeXML(platformToolset) <<
@@ -1909,7 +1905,7 @@ void cmVisualStudio10TargetGenerator::WritePathAndIncrementalLinkOptions()
         {
         outDir = intermediateDir;
         targetNameFull = this->GeneratorTarget->GetName();
-        targetNameFull += this->Target->IsAndroidMDD() ? ".a" : ".lib";
+        targetNameFull += this->AndroidMDD ? ".a" : ".lib";
         }
       else
         {
