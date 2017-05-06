@@ -664,11 +664,6 @@ const char* cmGlobalVisualStudio10Generator::GetAndroidMDDVersion()
 
 bool cmGlobalVisualStudio10Generator::IsAndroidMDDInstalled()
 {
-  std::string ideVersion = GetIDEVersion();
-  std::string installed;
-  cmSystemTools::ReadRegistryValue(
-    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\DevDiv\\MDD\\Servicing\\" +
-    ideVersion + "\\CPlusPlusCore;"
-    "Install", installed, cmSystemTools::KeyWOW64_32);
-  return installed == "1";
+    //always return true, we'd rather fail at build time.
+    return true;
 }
