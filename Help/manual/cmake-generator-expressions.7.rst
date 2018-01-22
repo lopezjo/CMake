@@ -51,6 +51,8 @@ Available logical expressions are:
   ``0`` if all ``?`` are ``0``, else ``1``
 ``$<NOT:?>``
   ``0`` if ``?`` is ``1``, else ``1``
+``$<IF:?,true-value...,false-value...>```
+  ``true-value...`` if ``?`` is ``1``, ``false-value...`` if ``?`` is ``0``
 ``$<STREQUAL:a,b>``
   ``1`` if ``a`` is STREQUAL ``b``, else ``0``
 ``$<EQUAL:a,b>``
@@ -66,12 +68,16 @@ Available logical expressions are:
   ``1`` if the CMake-id of the C compiler matches ``comp``, otherwise ``0``.
 ``$<CXX_COMPILER_ID:comp>``
   ``1`` if the CMake-id of the CXX compiler matches ``comp``, otherwise ``0``.
-``$<VERSION_GREATER:v1,v2>``
-  ``1`` if ``v1`` is a version greater than ``v2``, else ``0``.
 ``$<VERSION_LESS:v1,v2>``
   ``1`` if ``v1`` is a version less than ``v2``, else ``0``.
+``$<VERSION_GREATER:v1,v2>``
+  ``1`` if ``v1`` is a version greater than ``v2``, else ``0``.
 ``$<VERSION_EQUAL:v1,v2>``
   ``1`` if ``v1`` is the same version as ``v2``, else ``0``.
+``$<VERSION_LESS_EQUAL:v1,v2>``
+  ``1`` if ``v1`` is a version less than or equal to ``v2``, else ``0``.
+``$<VERSION_GREATER_EQUAL:v1,v2>``
+  ``1`` if ``v1`` is a version greater than or equal to ``v2``, else ``0``.
 ``$<C_COMPILER_VERSION:ver>``
   ``1`` if the version of the C compiler matches ``ver``, otherwise ``0``.
 ``$<CXX_COMPILER_VERSION:ver>``
@@ -111,7 +117,7 @@ Available logical expressions are:
   .. code-block:: cmake
 
     add_library(myapp_c foo.c)
-    add_library(myapp_cxx foo.c)
+    add_library(myapp_cxx bar.cpp)
     target_compile_options(myapp_cxx PUBLIC -fno-exceptions)
     add_executable(myapp main.cpp)
     target_link_libraries(myapp myapp_c myapp_cxx)
@@ -199,6 +205,15 @@ Available informational expressions are:
   Name of the linker generated program database file (.pdb).
 ``$<TARGET_PDB_FILE_DIR:tgt>``
   Directory of the linker generated program database file (.pdb).
+``$<TARGET_BUNDLE_DIR:tgt>``
+  Full path to the bundle directory (``my.app``, ``my.framework``, or
+  ``my.bundle``) where ``tgt`` is the name of a target.
+``$<TARGET_BUNDLE_CONTENT_DIR:tgt>``
+  Full path to the bundle content directory where ``tgt`` is the name of a
+  target. For the macOS SDK it leads to ``my.app/Contents``, ``my.framework``,
+  or ``my.bundle/Contents``. For all other SDKs (e.g. iOS) it leads to
+  ``my.app``, ``my.framework``, or ``my.bundle`` due to the flat bundle
+  structure.
 ``$<TARGET_PROPERTY:tgt,prop>``
   Value of the property ``prop`` on the target ``tgt``.
 
@@ -225,7 +240,7 @@ comparison::
   -I$<JOIN:$<TARGET_PROPERTY:INCLUDE_DIRECTORIES>, -I>
 
 generates a string of the entries in the :prop_tgt:`INCLUDE_DIRECTORIES` target
-property with each entry preceeded by ``-I``. Note that a more-complete use
+property with each entry preceded by ``-I``. Note that a more-complete use
 in this situation would require first checking if the INCLUDE_DIRECTORIES
 property is non-empty::
 
@@ -275,9 +290,7 @@ Available output expressions are:
   Content of ``...`` converted to a C identifier.
 ``$<TARGET_OBJECTS:objLib>``
   List of objects resulting from build of ``objLib``. ``objLib`` must be an
-  object of type ``OBJECT_LIBRARY``.  This expression may only be used in
-  the sources of :command:`add_library` and :command:`add_executable`
-  commands.
+  object of type ``OBJECT_LIBRARY``.
 ``$<SHELL_PATH:...>``
   Content of ``...`` converted to shell path style. For example, slashes are
   converted to backslashes in Windows shells and drive letters are converted

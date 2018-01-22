@@ -45,10 +45,14 @@ signatures that specify them.  The common options are:
   is associated, such as "runtime" or "development".  During
   component-specific installation only install rules associated with
   the given component name will be executed.  During a full installation
-  all components are installed.  If ``COMPONENT`` is not provided a
-  default component "Unspecified" is created.  The default component
-  name may be controlled with the
+  all components are installed unless marked with ``EXCLUDE_FROM_ALL``.
+  If ``COMPONENT`` is not provided a default component "Unspecified" is
+  created.  The default component name may be controlled with the
   :variable:`CMAKE_INSTALL_DEFAULT_COMPONENT_NAME` variable.
+
+``EXCLUDE_FROM_ALL``
+  Specify that the file is excluded from a full installation and only
+  installed as part of a component-specific installation
 
 ``RENAME``
   Specify a name for an installed file that may be different from the
@@ -69,33 +73,37 @@ Installing Targets
 ::
 
   install(TARGETS targets... [EXPORT <export-name>]
-          [[ARCHIVE|LIBRARY|RUNTIME|FRAMEWORK|BUNDLE|
+          [[ARCHIVE|LIBRARY|RUNTIME|OBJECTS|FRAMEWORK|BUNDLE|
             PRIVATE_HEADER|PUBLIC_HEADER|RESOURCE]
            [DESTINATION <dir>]
            [PERMISSIONS permissions...]
            [CONFIGURATIONS [Debug|Release|...]]
            [COMPONENT <component>]
-           [OPTIONAL] [NAMELINK_ONLY|NAMELINK_SKIP]
+           [OPTIONAL] [EXCLUDE_FROM_ALL]
+           [NAMELINK_ONLY|NAMELINK_SKIP]
           ] [...]
           [INCLUDES DESTINATION [<dir> ...]]
           )
 
 The ``TARGETS`` form specifies rules for installing targets from a
-project.  There are five kinds of target files that may be installed:
-``ARCHIVE``, ``LIBRARY``, ``RUNTIME``, ``FRAMEWORK``, and ``BUNDLE``.
-Executables are treated as ``RUNTIME`` targets, except that those
-marked with the ``MACOSX_BUNDLE`` property are treated as ``BUNDLE``
-targets on OS X.  Static libraries are always treated as ``ARCHIVE``
-targets.  Module libraries are always treated as ``LIBRARY`` targets.
+project.  There are six kinds of target files that may be installed:
+``ARCHIVE``, ``LIBRARY``, ``RUNTIME``, ``OBJECTS``, ``FRAMEWORK``, and
+``BUNDLE``. Executables are treated as ``RUNTIME`` targets, except that
+those marked with the ``MACOSX_BUNDLE`` property are treated as ``BUNDLE``
+targets on OS X.  Static libraries are treated as ``ARCHIVE`` targets,
+except that those marked with the ``FRAMEWORK`` property are treated
+as ``FRAMEWORK`` targets on OS X.
+Module libraries are always treated as ``LIBRARY`` targets.
 For non-DLL platforms shared libraries are treated as ``LIBRARY``
 targets, except that those marked with the ``FRAMEWORK`` property are
 treated as ``FRAMEWORK`` targets on OS X.  For DLL platforms the DLL
 part of a shared library is treated as a ``RUNTIME`` target and the
 corresponding import library is treated as an ``ARCHIVE`` target.
-All Windows-based systems including Cygwin are DLL platforms.
-The ``ARCHIVE``, ``LIBRARY``, ``RUNTIME``, and ``FRAMEWORK`` arguments
-change the type of target to which the subsequent properties apply.
-If none is given the installation properties apply to all target
+All Windows-based systems including Cygwin are DLL platforms. Object
+libraries are always treated as ``OBJECTS`` targets.
+The ``ARCHIVE``, ``LIBRARY``, ``RUNTIME``, ``OBJECTS``, and ``FRAMEWORK``
+arguments change the type of target to which the subsequent properties
+apply. If none is given the installation properties apply to all target
 types.  If only one is given then only targets of that type will be
 installed (which can be used to install just a DLL or just an import
 library).
@@ -158,8 +166,8 @@ the ``mySharedLib`` DLL will be installed to ``<prefix>/bin`` and
 
 The ``EXPORT`` option associates the installed target files with an
 export called ``<export-name>``.  It must appear before any ``RUNTIME``,
-``LIBRARY``, or ``ARCHIVE`` options.  To actually install the export
-file itself, call ``install(EXPORT)``, documented below.
+``LIBRARY``, ``ARCHIVE``, or ``OBJECTS`` options.  To actually install the
+export file itself, call ``install(EXPORT)``, documented below.
 
 Installing a target with the :prop_tgt:`EXCLUDE_FROM_ALL` target property
 set to ``TRUE`` has undefined behavior.
@@ -177,7 +185,7 @@ Installing Files
           [PERMISSIONS permissions...]
           [CONFIGURATIONS [Debug|Release|...]]
           [COMPONENT <component>]
-          [RENAME <name>] [OPTIONAL])
+          [RENAME <name>] [OPTIONAL] [EXCLUDE_FROM_ALL])
 
 The ``FILES`` form specifies rules for installing files for a project.
 File names given as relative paths are interpreted with respect to the
@@ -211,7 +219,8 @@ Installing Directories
           [DIRECTORY_PERMISSIONS permissions...]
           [USE_SOURCE_PERMISSIONS] [OPTIONAL] [MESSAGE_NEVER]
           [CONFIGURATIONS [Debug|Release|...]]
-          [COMPONENT <component>] [FILES_MATCHING]
+          [COMPONENT <component>] [EXCLUDE_FROM_ALL]
+          [FILES_MATCHING]
           [[PATTERN <pattern> | REGEX <regex>]
            [EXCLUDE] [PERMISSIONS permissions...]] [...])
 
@@ -287,7 +296,7 @@ Custom Installation Logic
 ::
 
   install([[SCRIPT <file>] [CODE <code>]]
-          [COMPONENT <component>] [...])
+          [COMPONENT <component>] [EXCLUDE_FROM_ALL] [...])
 
 The ``SCRIPT`` form will invoke the given CMake script files during
 installation.  If the script file name is a relative path it will be
@@ -308,11 +317,13 @@ Installing Exports
 ::
 
   install(EXPORT <export-name> DESTINATION <dir>
-          [NAMESPACE <namespace>] [FILE <name>.cmake]
+          [NAMESPACE <namespace>] [[FILE <name>.cmake]|
+          [EXPORT_ANDROID_MK <name>.mk]]
           [PERMISSIONS permissions...]
           [CONFIGURATIONS [Debug|Release|...]]
           [EXPORT_LINK_INTERFACE_LIBRARIES]
-          [COMPONENT <component>])
+          [COMPONENT <component>]
+          [EXCLUDE_FROM_ALL])
 
 The ``EXPORT`` form generates and installs a CMake file containing code to
 import targets from the installation tree into another project.
@@ -335,6 +346,13 @@ specified that does not match that given to the targets associated with
 included in the export but a target to which it links is not included
 the behavior is unspecified.
 
+In additon to cmake language files, the ``EXPORT_ANDROID_MK`` option maybe
+used to specifiy an export to the android ndk build system.  The Android
+NDK supports the use of prebuilt libraries, both static and shared. This
+allows cmake to build the libraries of a project and make them available
+to an ndk build system complete with transitive dependencies, include flags
+and defines required to use the libraries.
+
 The ``EXPORT`` form is useful to help outside projects use targets built
 and installed by the current project.  For example, the code
 
@@ -342,9 +360,11 @@ and installed by the current project.  For example, the code
 
   install(TARGETS myexe EXPORT myproj DESTINATION bin)
   install(EXPORT myproj NAMESPACE mp_ DESTINATION lib/myproj)
+  install(EXPORT_ANDROID_MK myexp DESTINATION share/ndk-modules)
 
 will install the executable myexe to ``<prefix>/bin`` and code to import
-it in the file ``<prefix>/lib/myproj/myproj.cmake``.  An outside project
+it in the file ``<prefix>/lib/myproj/myproj.cmake`` and
+``<prefix>/lib/share/ndk-modules/Android.mk``.  An outside project
 may load this file with the include command and reference the ``myexe``
 executable from the installation tree using the imported target name
 ``mp_myexe`` as if the target were built in its own tree.

@@ -56,7 +56,7 @@ Options
  Enable failover.
 
  This option allows ctest to resume a test set execution that was
- previously interrupted.  If no interruption occurred, the -F option
+ previously interrupted.  If no interruption occurred, the ``-F`` option
  will have no effect.
 
 ``-j <jobs>, --parallel <jobs>``
@@ -77,12 +77,12 @@ Options
  Make ctest quiet.
 
  This option will suppress all the output.  The output log file will
- still be generated if the --output-log is specified.  Options such
- as --verbose, --extra-verbose, and --debug are ignored if --quiet is
- specified.
+ still be generated if the ``--output-log`` is specified.  Options such
+ as ``--verbose``, ``--extra-verbose``, and ``--debug`` are ignored
+ if ``--quiet`` is specified.
 
 ``-O <file>, --output-log <file>``
- Output to log file
+ Output to log file.
 
  This option tells ctest to write all its output to a log file.
 
@@ -90,7 +90,7 @@ Options
  Disable actual execution of tests.
 
  This option tells ctest to list the tests that would be run but not
- actually run them.  Useful in conjunction with the -R and -E
+ actually run them.  Useful in conjunction with the ``-R`` and ``-E``
  options.
 
 ``-L <regex>, --label-regex <regex>``
@@ -117,8 +117,25 @@ Options
  This option tells ctest to NOT run the tests whose labels match the
  given regular expression.
 
+``-FA <regex>, --fixture-exclude-any <regex>``
+ Exclude fixtures matching ``<regex>`` from automatically adding any tests to
+ the test set.
+
+ If a test in the set of tests to be executed requires a particular fixture,
+ that fixture's setup and cleanup tests would normally be added to the test set
+ automatically. This option prevents adding setup or cleanup tests for fixtures
+ matching the ``<regex>``. Note that all other fixture behavior is retained,
+ including test dependencies and skipping tests that have fixture setup tests
+ that fail.
+
+``-FS <regex>, --fixture-exclude-setup <regex>``
+ Same as ``-FA`` except only matching setup tests are excluded.
+
+``-FC <regex>, --fixture-exclude-cleanup <regex>``
+ Same as ``-FA`` except only matching cleanup tests are excluded.
+
 ``-D <dashboard>, --dashboard <dashboard>``
- Execute dashboard test
+ Execute dashboard test.
 
  This option tells ctest to act as a CDash client and perform a
  dashboard test.  All tests are <Mode><Test>, where Mode can be
@@ -126,26 +143,27 @@ Options
  Update, Configure, Build, Test, Coverage, and Submit.
 
 ``-D <var>:<type>=<value>``
- Define a variable for script mode
+ Define a variable for script mode.
 
  Pass in variable values on the command line.  Use in conjunction
- with -S to pass variable values to a dashboard script.  Parsing -D
+ with ``-S`` to pass variable values to a dashboard script.  Parsing ``-D``
  arguments as variable values is only attempted if the value
- following -D does not match any of the known dashboard types.
+ following ``-D`` does not match any of the known dashboard types.
 
 ``-M <model>, --test-model <model>``
- Sets the model for a dashboard
+ Sets the model for a dashboard.
 
- This option tells ctest to act as a CDash client where the TestModel
- can be Experimental, Nightly, and Continuous.  Combining -M and -T
- is similar to -D
+ This option tells ctest to act as a CDash client where the ``<model>``
+ can be ``Experimental``, ``Nightly``, and ``Continuous``.
+ Combining ``-M`` and ``-T`` is similar to ``-D``.
 
 ``-T <action>, --test-action <action>``
- Sets the dashboard action to perform
+ Sets the dashboard action to perform.
 
  This option tells ctest to act as a CDash client and perform some
- action such as start, build, test etc.  Combining -M and -T is
- similar to -D
+ action such as ``start``, ``build``, ``test`` etc. See
+ `Dashboard Client Steps`_ for the full list of actions.
+ Combining ``-M`` and ``-T`` is similar to ``-D``.
 
 ``--track <track>``
  Specify the track to submit dashboard to
@@ -156,24 +174,24 @@ Options
  arbitrary.
 
 ``-S <script>, --script <script>``
- Execute a dashboard for a configuration
+ Execute a dashboard for a configuration.
 
  This option tells ctest to load in a configuration script which sets
  a number of parameters such as the binary and source directories.
  Then ctest will do what is required to create and run a dashboard.
- This option basically sets up a dashboard and then runs ctest -D
+ This option basically sets up a dashboard and then runs ``ctest -D``
  with the appropriate options.
 
 ``-SP <script>, --script-new-process <script>``
- Execute a dashboard for a configuration
+ Execute a dashboard for a configuration.
 
- This option does the same operations as -S but it will do them in a
+ This option does the same operations as ``-S`` but it will do them in a
  separate process.  This is primarily useful in cases where the
  script may modify the environment and you do not want the modified
- environment to impact other -S scripts.
+ environment to impact other ``-S`` scripts.
 
 ``-A <file>, --add-notes <file>``
- Add a notes file with submission
+ Add a notes file with submission.
 
  This option tells ctest to include a notes file when submitting
  dashboard.
@@ -188,19 +206,19 @@ Options
  contains the same syntax as the command line.
 
 ``-U, --union``
- Take the Union of -I and -R
+ Take the Union of ``-I`` and ``-R``.
 
- When both -R and -I are specified by default the intersection of
- tests are run.  By specifying -U the union of tests is run instead.
+ When both ``-R`` and ``-I`` are specified by default the intersection of
+ tests are run.  By specifying ``-U`` the union of tests is run instead.
 
 ``--rerun-failed``
- Run only the tests that failed previously
+ Run only the tests that failed previously.
 
  This option tells ctest to perform only the tests that failed during
  its previous run.  When this option is specified, ctest ignores all
- other options intended to modify the list of tests to run (-L, -R,
- -E, -LE, -I, etc).  In the event that CTest runs and no tests fail,
- subsequent calls to ctest with the --rerun-failed option will run
+ other options intended to modify the list of tests to run (``-L``, ``-R``,
+ ``-E``, ``-LE``, ``-I``, etc).  In the event that CTest runs and no tests
+ fail, subsequent calls to ctest with the ``--rerun-failed`` option will run
  the set of tests that most recently failed (if any).
 
 ``--repeat-until-fail <n>``
@@ -209,7 +227,7 @@ Options
  This is useful in finding sporadic failures in test cases.
 
 ``--max-width <width>``
- Set the max width for a test name to output
+ Set the max width for a test name to output.
 
  Set the maximum width for each test name to show in the output.
  This allows the user to widen the output to avoid clipping the test
@@ -232,26 +250,32 @@ Options
  label associated with the tests run.  If there are no labels on the
  tests, nothing extra is printed.
 
-``--build-and-test``
+ ``--no-subproject-summary``
+ Disable timing summary information for subprojects.
+
+ This option tells ctest not to print summary information for each
+ subproject associated with the tests run.  If there are no subprojects on the
+ tests, nothing extra is printed.
+
+``--build-and-test <path-to-source> <path-to-build>``
  Configure, build and run a test.
 
  This option tells ctest to configure (i.e.  run cmake on), build,
  and or execute a test.  The configure and test steps are optional.
  The arguments to this command line are the source and binary
- directories.  By default this will run CMake on the Source/Bin
- directories specified unless --build-nocmake is specified.
- The --build-generator option *must* be provided to use
- --build-and-test.  If --test-command is specified then that will be
+ directories.
+ The ``--build-generator`` option *must* be provided to use
+ ``--build-and-test``.  If ``--test-command`` is specified then that will be
  run after the build is complete.  Other options that affect this
- mode are --build-target --build-nocmake, --build-run-dir,
- --build-two-config, --build-exe-dir,
- --build-project,--build-noclean, --build-options
+ mode are ``--build-target``, ``--build-nocmake``, ``--build-run-dir``,
+ ``--build-two-config``, ``--build-exe-dir``,
+ ``--build-project``, ``--build-noclean`` and ``--build-options``.
 
 ``--build-target``
  Specify a specific target to build.
 
- This option goes with the --build-and-test option, if left out the
- all target is built.
+ This option goes with the ``--build-and-test`` option, if left out the
+ ``all`` target is built.
 
 ``--build-nocmake``
  Run the build without running cmake first.
@@ -264,13 +288,13 @@ Options
  Directory where programs will be after it has been compiled.
 
 ``--build-two-config``
- Run CMake twice
+ Run CMake twice.
 
 ``--build-exe-dir``
  Specify the directory for the executable.
 
 ``--build-generator``
- Specify the generator to use.
+ Specify the generator to use. See the :manual:`cmake-generators(7)` manual.
 
 ``--build-generator-platform``
  Specify the generator-specific platform.
@@ -288,25 +312,23 @@ Options
  Skip the make clean step.
 
 ``--build-config-sample``
- A sample executable to use to determine the configuration
-
  A sample executable to use to determine the configuration that
- should be used.  e.g.  Debug/Release/etc
+ should be used.  e.g.  Debug/Release/etc.
 
 ``--build-options``
  Add extra options to the build step.
 
  This option must be the last option with the exception of
- --test-command
+ ``--test-command``
 
 ``--test-command``
- The test to run with the --build-and-test option.
+ The test to run with the ``--build-and-test`` option.
 
 ``--test-output-size-passed <size>``
- Limit the output for passed tests to <size> bytes.
+ Limit the output for passed tests to ``<size>`` bytes.
 
 ``--test-output-size-failed <size>``
- Limit the output for failed tests to <size> bytes.
+ Limit the output for failed tests to ``<size>`` bytes.
 
 ``--test-timeout``
  The time limit in seconds, internal use only.
@@ -335,14 +357,14 @@ Options
  This option will submit extra files to the dashboard.
 
 ``--force-new-ctest-process``
- Run child CTest instances as new processes
+ Run child CTest instances as new processes.
 
  By default CTest will run child CTest instances within the same
  process.  If this behavior is not desired, this argument will
  enforce new processes for child CTest processes.
 
 ``--schedule-random``
- Use a random order for scheduling tests
+ Use a random order for scheduling tests.
 
  This option will run the tests in a random order.  It is commonly
  used to detect implicit dependencies in a test suite.
@@ -361,7 +383,7 @@ Options
  Set a time at which all tests should stop running.
 
  Set a real time of day at which all tests should timeout.  Example:
- 7:00:00 -0400.  Any time format understood by the curl date parser
+ ``7:00:00 -0400``.  Any time format understood by the curl date parser
  is accepted.  Local time is assumed if no timezone is specified.
 
 ``--http1.0``
@@ -589,6 +611,17 @@ Configuration settings to specify the version control tool include:
   * `CTest Script`_ variable: :variable:`CTEST_GIT_COMMAND`
   * :module:`CTest` module variable: ``GITCOMMAND``
 
+  The source tree is updated by ``git fetch`` followed by
+  ``git reset --hard`` to the ``FETCH_HEAD``.  The result is the same
+  as ``git pull`` except that any local moficiations are overwritten.
+  Use ``GITUpdateCustom`` to specify a different approach.
+
+``GITInitSubmodules``
+  If set, CTest will update the repository's submodules before updating.
+
+  * `CTest Script`_ variable: :variable:`CTEST_GIT_INIT_SUBMODULES`
+  * :module:`CTest` module variable: ``CTEST_GIT_INIT_SUBMODULES``
+
 ``GITUpdateCustom``
   Specify a custom command line (as a semicolon-separated list) to run
   in the source tree (Git work tree) to update it instead of running
@@ -732,6 +765,15 @@ Configuration settings include:
   * :module:`CTest` module variable: :variable:`CMAKE_COMMAND`
     followed by :variable:`PROJECT_SOURCE_DIR`
 
+``LabelsForSubprojects``
+  Specify a semicolon-separated list of labels that will be treated as
+  subprojects. This mapping will be passed on to CDash when configure, test or
+  build results are submitted.
+
+  * `CTest Script`_ variable: :variable:`CTEST_LABELS_FOR_SUBPROJECTS`
+  * :module:`CTest` module variable: ``CTEST_LABELS_FOR_SUBPROJECTS``
+
+
 .. _`CTest Build Step`:
 
 CTest Build Step
@@ -753,6 +795,14 @@ Configuration settings include:
   * `CTest Script`_ variable: :variable:`CTEST_CONFIGURATION_TYPE`
   * :module:`CTest` module variable: ``DEFAULT_CTEST_CONFIGURATION_TYPE``,
     initialized by the ``CMAKE_CONFIG_TYPE`` environment variable
+
+``LabelsForSubprojects``
+  Specify a semicolon-separated list of labels that will be treated as
+  subprojects. This mapping will be passed on to CDash when configure, test or
+  build results are submitted.
+
+  * `CTest Script`_ variable: :variable:`CTEST_LABELS_FOR_SUBPROJECTS`
+  * :module:`CTest` module variable: ``CTEST_LABELS_FOR_SUBPROJECTS``
 
 ``MakeCommand``
   Command-line to launch the software build process.
@@ -788,6 +838,15 @@ In a `CTest Script`_, the :command:`ctest_test` command runs this step.
 Arguments to the command may specify some of the step settings.
 
 Configuration settings include:
+
+``LabelsForSubprojects``
+  Specify a semicolon-separated list of labels that will be treated as
+  subprojects. This mapping will be passed on to CDash when configure, test or
+  build results are submitted.
+
+  * `CTest Script`_ variable: :variable:`CTEST_LABELS_FOR_SUBPROJECTS`
+  * :module:`CTest` module variable: ``CTEST_LABELS_FOR_SUBPROJECTS``
+
 
 ``TestLoad``
   While running tests in parallel (e.g. with ``-j``), try not to start
@@ -826,6 +885,8 @@ Configuration settings include:
 
   * `CTest Script`_ variable: :variable:`CTEST_COVERAGE_EXTRA_FLAGS`
   * :module:`CTest` module variable: ``COVERAGE_EXTRA_FLAGS``
+
+  These options are the first arguments passed to ``CoverageCommand``.
 
 .. _`CTest MemCheck Step`:
 

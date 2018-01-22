@@ -1,3 +1,6 @@
+# Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
+# file Copyright.txt or https://cmake.org/licensing for details.
+
 #.rst:
 # FindQt4
 # -------
@@ -240,6 +243,8 @@
 #  The QAxServer target (Windows only)
 # ``Qt4::QtDBus``
 #  The QtDBus target
+# ``Qt4::QtDeclarative``
+#  The QtDeclarative target
 # ``Qt4::QtDesigner``
 #  The QtDesigner target
 # ``Qt4::QtDesignerComponents``
@@ -294,19 +299,6 @@
 #  The minor version of Qt found.
 # ``QT_VERSION_PATCH``
 #  The patch version of Qt found.
-
-#=============================================================================
-# Copyright 2005-2009 Kitware, Inc.
-#
-# Distributed under the OSI-approved BSD License (the "License");
-# see accompanying file Copyright.txt for details.
-#
-# This software is distributed WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See the License for more information.
-#=============================================================================
-# (To distribute this file outside of CMake, substitute the full
-#  License text for the above reference.)
 
 # Use find_package( Qt4 COMPONENTS ... ) to enable modules
 if( Qt4_FIND_COMPONENTS )
@@ -363,19 +355,21 @@ macro (_QT4_ADJUST_LIB_VARS _camelCaseBasename)
 
       if (QT_${basename}_LIBRARY_RELEASE)
         set_property(TARGET Qt4::${_camelCaseBasename} APPEND PROPERTY IMPORTED_CONFIGURATIONS RELEASE)
-        if(QT_USE_FRAMEWORKS)
-          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_RELEASE "${QT_${basename}_LIBRARY_RELEASE}/${_camelCaseBasename}" )
+        set(_location "${QT_${basename}_LIBRARY_RELEASE}")
+        if(QT_USE_FRAMEWORKS AND EXISTS ${_location}/${_camelCaseBasename})
+          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_RELEASE "${_location}/${_camelCaseBasename}" )
         else()
-          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_RELEASE "${QT_${basename}_LIBRARY_RELEASE}" )
+          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_RELEASE "${_location}" )
         endif()
       endif ()
 
       if (QT_${basename}_LIBRARY_DEBUG)
         set_property(TARGET Qt4::${_camelCaseBasename} APPEND PROPERTY IMPORTED_CONFIGURATIONS DEBUG)
-        if(QT_USE_FRAMEWORKS)
-          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_DEBUG "${QT_${basename}_LIBRARY_DEBUG}/${_camelCaseBasename}" )
+        set(_location "${QT_${basename}_LIBRARY_DEBUG}")
+        if(QT_USE_FRAMEWORKS AND EXISTS ${_location}/${_camelCaseBasename})
+          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_DEBUG "${_location}/${_camelCaseBasename}" )
         else()
-          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_DEBUG "${QT_${basename}_LIBRARY_DEBUG}" )
+          set_property(TARGET Qt4::${_camelCaseBasename}        PROPERTY IMPORTED_LOCATION_DEBUG "${_location}" )
         endif()
       endif ()
       set_property(TARGET Qt4::${_camelCaseBasename} PROPERTY
@@ -762,7 +756,7 @@ if (QT_QMAKE_EXECUTABLE AND
   #############################################
   cmake_push_check_state()
   # Add QT_INCLUDE_DIR to CMAKE_REQUIRED_INCLUDES
-  set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};${QT_INCLUDE_DIR}")
+  list(APPEND CMAKE_REQUIRED_INCLUDES "${QT_INCLUDE_DIR}")
   set(CMAKE_REQUIRED_QUIET ${Qt4_FIND_QUIETLY})
   # Check for Window system symbols (note: only one should end up being set)
   CHECK_CXX_SYMBOL_EXISTS(Q_WS_X11 "QtCore/qglobal.h" Q_WS_X11)
