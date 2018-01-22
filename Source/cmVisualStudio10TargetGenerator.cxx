@@ -1783,12 +1783,6 @@ void cmVisualStudio10TargetGenerator::WriteExtraSource(cmSourceFile const* sf)
     tool = toolOverride;
   }
 
-  const char* toolOverride = sf->GetProperty("VS_TOOL_OVERRIDE");
-  if(toolOverride && *toolOverride)
-    {
-    tool = toolOverride;
-    }
-
   std::string deployContent;
   std::string deployLocation;
   if (this->GlobalGenerator->TargetsWindowsPhone() ||
