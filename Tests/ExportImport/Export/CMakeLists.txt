@@ -79,10 +79,13 @@ set_property(TARGET testLib7 PROPERTY OUTPUT_NAME_DEBUG testLib7D-$<CONFIG>)
 set_property(TARGET testLib7 PROPERTY OUTPUT_NAME_RELEASE testLib7R-$<CONFIG>)
 set_property(TARGET testLib7 PROPERTY OUTPUT_NAME testLib7-$<CONFIG>)
 
-# Work-around: Visual Studio 6 does not support per-target object files.
-set(VS6)
-if("${CMAKE_GENERATOR}" MATCHES "Visual Studio 6")
-  set(VS6 1)
+# Test exporting OBJECT targets
+add_library(testLib8 OBJECT testLib8A.c testLib8B.c sub/testLib8C.c)
+
+if(NOT CMAKE_GENERATOR STREQUAL "Xcode" OR NOT CMAKE_OSX_ARCHITECTURES MATCHES "[;$]")
+  set(maybe_testLib8 testLib8)
+else()
+  set(maybe_testLib8 "")
 endif()
 
 # Test using the target_link_libraries command to set the
@@ -93,8 +96,8 @@ endif()
 # configuration in which it is built.  If the proper library is not
 # used via the link interface the import test will fail to link.
 add_library(testLib4lib STATIC testLib4lib.c)
-add_library(testLib4libdbg STATIC testLib4libopt.c testLib4libdbg${VS6}.c)
-add_library(testLib4libopt STATIC testLib4libdbg.c testLib4libopt${VS6}.c)
+add_library(testLib4libdbg STATIC testLib4libopt.c testLib4libdbg.c)
+add_library(testLib4libopt STATIC testLib4libdbg.c testLib4libopt.c)
 set_property(TARGET testLib4libdbg PROPERTY COMPILE_DEFINITIONS LIB_DBG)
 set_property(TARGET testLib4libopt PROPERTY COMPILE_DEFINITIONS LIB_OPT)
 target_link_libraries(testLib4
@@ -480,7 +483,7 @@ install(
   TARGETS
   testExe1 testLib1 testLib2 testExe2 testLib3 testLib4 testExe3 testExe4
   testExe2lib testLib4lib testLib4libdbg testLib4libopt
-  testLib6 testLib7
+  testLib6 testLib7 ${maybe_testLib8}
   testLibCycleA testLibCycleB
   testLibNoSONAME
   cmp0022NEW cmp0022OLD
@@ -489,6 +492,7 @@ install(
   RUNTIME DESTINATION $<1:bin>
   LIBRARY DESTINATION $<1:lib> NAMELINK_SKIP
   ARCHIVE DESTINATION $<1:lib>
+  OBJECTS DESTINATION $<1:lib>
   FRAMEWORK DESTINATION Frameworks
   BUNDLE DESTINATION Applications
   )
@@ -541,6 +545,7 @@ export(TARGETS testExe1 testLib1 testLib2 testLib3
   FILE ExportBuildTree.cmake
   )
 export(TARGETS testExe2 testLib4 testLib5 testLib6 testLib7 testExe3 testExe4 testExe2lib
+  ${maybe_testLib8}
   testLib4lib testLib4libdbg testLib4libopt
   testLibCycleA testLibCycleB
   testLibNoSONAME

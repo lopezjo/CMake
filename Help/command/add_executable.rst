@@ -40,6 +40,9 @@ the syntax ``$<...>``.  See the :manual:`cmake-generator-expressions(7)`
 manual for available expressions.  See the :manual:`cmake-buildsystem(7)`
 manual for more on defining buildsystem properties.
 
+See also :prop_sf:`HEADER_FILE_ONLY` on what to do if some sources are
+pre-processed, and you want to have the original sources reachable from
+within IDE.
 
 --------------------------------------------------------------------------
 
@@ -73,7 +76,7 @@ does not appear in the generated buildsystem as a make target.  The
 ``<target>`` may not be an :ref:`Imported Target <Imported Targets>` or an
 ``ALIAS``.  ``ALIAS`` targets can be used as targets to read properties
 from, executables for custom commands and custom targets.  They can also be
-tested for existance with the regular :command:`if(TARGET)` subcommand.
+tested for existence with the regular :command:`if(TARGET)` subcommand.
 The ``<name>`` may not be used to modify properties of ``<target>``, that
 is, it may not be used as the operand of :command:`set_property`,
 :command:`set_target_properties`, :command:`target_link_libraries` etc.
